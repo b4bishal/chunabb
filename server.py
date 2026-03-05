@@ -5,9 +5,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
-from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
-import requests, re, time, logging, os, json
+import requests, re, time, logging, os, json, zipfile, urllib.request
 
 app = Flask(__name__, static_folder=".")
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -55,11 +54,57 @@ def is_fresh(e):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Selenium — optimized for Railway container
+# ChromeDriver — Manual Download (bypasses webdriver-manager issues)
 # ─────────────────────────────────────────────────────────────────────────────
 
+def download_chromedriver(version="120.0.6099.129"):
+    """Download ChromeDriver directly without Chrome detection."""
+    cache_dir = os.path.expanduser("~/.chromedriver_cache")
+    os.makedirs(cache_dir, exist_ok=True)
+    
+    driver_path = os.path.join(cache_dir, f"chromedriver-{version}")
+    
+    # Return if already cached
+    if os.path.exists(driver_path) and os.path.getsize(driver_path) > 1000000:
+        logging.info(f"Using cached ChromeDriver: {driver_path}")
+        os.chmod(driver_path, 0o755)
+        return driver_path
+    
+    # Try downloading ChromeDriver from chromedriver.storage.googleapis.com
+    # This is the official ChromeDriver repository
+    url = f"https://chromedriver.storage.googleapis.com/{version}/chromedriver_linux64.zip"
+    logging.info(f"Downloading ChromeDriver {version}...")
+    
+    try:
+        zip_path = os.path.join(cache_dir, f"chromedriver-{version}.zip")
+        logging.info(f"Downloading from: {url}")
+        urllib.request.urlretrieve(url, zip_path)
+        logging.info("Download complete, extracting...")
+        
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(cache_dir)
+        
+        # Find the extracted chromedriver
+        extracted_path = os.path.join(cache_dir, "chromedriver")
+        
+        if os.path.exists(extracted_path):
+            # Make it executable
+            os.chmod(extracted_path, 0o755)
+            
+            # Rename/cache it with version
+            os.rename(extracted_path, driver_path)
+            logging.info(f"✓ ChromeDriver {version} cached at: {driver_path}")
+            return driver_path
+        else:
+            raise Exception(f"ChromeDriver not found in extracted zip")
+            
+    except Exception as e:
+        logging.error(f"Failed to download ChromeDriver: {e}")
+        raise
+
+
 def make_driver():
-    """Create a Chrome WebDriver with Railway-compatible settings."""
+    """Create a Chrome WebDriver."""
     opts = Options()
     opts.add_argument("--headless=new")
     opts.add_argument("--no-sandbox")
@@ -73,35 +118,14 @@ def make_driver():
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     )
     
-    # Try to use system Chrome if available
-    chrome_paths = [
-        "/usr/bin/chromium",
-        "/usr/bin/chromium-browser",
-        "/usr/bin/google-chrome",
-        "/usr/bin/google-chrome-stable",
-    ]
-    
-    for chrome_path in chrome_paths:
-        if os.path.exists(chrome_path):
-            logging.info(f"Found Chrome at: {chrome_path}")
-            opts.binary_location = chrome_path
-            break
-    
-    # Use webdriver-manager to download compatible ChromeDriver
-    logging.info("Creating Chrome WebDriver...")
-    
+    logging.info("Setting up Chrome WebDriver...")
     try:
-        # Suppress webdriver-manager's Chrome detection to avoid errors
-        os.environ['WDM_LOG'] = '0'
-        
-        logging.info("Downloading ChromeDriver...")
-        driver_path = ChromeDriverManager().install()
-        logging.info(f"✓ ChromeDriver installed at: {driver_path}")
+        # Download ChromeDriver
+        driver_path = download_chromedriver(version="120.0.6099.129")
+        logging.info(f"Creating webdriver with: {driver_path}")
         return webdriver.Chrome(service=Service(driver_path), options=opts)
     except Exception as e:
-        logging.error(f"ChromeDriver installation failed: {e}")
-        import traceback
-        traceback.print_exc()
+        logging.error(f"Failed to create driver: {e}")
         raise
 
 
@@ -375,104 +399,6 @@ def get_results(slug: str):
         logging.error(f"Failed {slug}: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
-@app.route("/debug-voters/<path:slug>")
-def debug_voters(slug: str):
-    slug = slug.strip("/").lower()
-    url  = f"{BASE}/constituency/{slug}"
-    driver = None
-    try:
-        driver = make_driver()
-        driver.get(url)
-        try:
-            WebDriverWait(driver, 30).until(
-                lambda d: len(d.find_element(By.TAG_NAME, "body").text) > 300
-            )
-        except Exception:
-            pass
-        time.sleep(2)
-        html      = driver.page_source
-        body_text = driver.find_element(By.TAG_NAME, "body").text
-        soup = BeautifulSoup(html, "html.parser")
-        keywords = ["जम्मा", "पुरुष", "महिला", "मतदाता", "voter"]
-        body_lines = body_text.splitlines()
-        context_lines = []
-        for i, line in enumerate(body_lines):
-            if any(k.lower() in line.lower() for k in keywords):
-                start = max(0, i-2)
-                end   = min(len(body_lines), i+5)
-                context_lines.append({"line_index": i, "context": body_lines[start:end]})
-        matching_elements = []
-        for el in soup.find_all(True):
-            own_text = el.get_text(separator=" ", strip=True)
-            if any(k in own_text for k in ["जम्मा मतदाता","पुरुष मतदाता","महिला मतदाता"]):
-                if len(own_text) < 500:
-                    matching_elements.append({
-                        "tag": el.name, "classes": el.get("class", []),
-                        "html": str(el)[:600], "text": own_text[:200],
-                    })
-        return jsonify({
-            "url": url, "body_line_count": len(body_lines),
-            "keyword_contexts": context_lines[:20],
-            "matching_elements": matching_elements[:15],
-        })
-    finally:
-        if driver:
-            try:
-                driver.quit()
-            except:
-                pass
-
-@app.route("/debug/<path:slug>")
-def debug_html(slug: str):
-    slug = slug.strip("/").lower()
-    url  = f"{BASE}/constituency/{slug}"
-    driver = None
-    try:
-        driver = make_driver()
-        driver.get(url)
-        try:
-            WebDriverWait(driver, 30).until(
-                lambda d: bool(d.find_elements(
-                    By.CSS_SELECTOR, "div.result-container.col6, div.result-container"
-                ))
-            )
-        except Exception:
-            pass
-        time.sleep(2)
-        html = driver.page_source
-        soup = BeautifulSoup(html, "html.parser")
-        containers = soup.find_all(
-            "div", class_=lambda c: c and "result-container" in c and "col6" in c
-        )
-        if not containers:
-            containers = soup.find_all(
-                "div", class_=lambda c: c and "result-container" in c
-            )
-        out = []
-        for i, c in enumerate(containers):
-            anchors = c.find_all("a", href=re.compile(r"/candidate/"))[:6]
-            samples = []
-            for a in anchors:
-                node = a
-                for _ in range(5):
-                    if node.parent: node = node.parent
-                samples.append(str(node)[:2000])
-            out.append({
-                "index": i, "classes": c.get("class", []),
-                "text_preview": c.get_text(separator="|", strip=True)[:400],
-                "candidate_anchor_count": len(c.find_all("a", href=re.compile(r"/candidate/"))),
-                "img_count": len(c.find_all("img")),
-                "all_img_srcs": [img.get("src","") for img in c.find_all("img", src=True)][:20],
-                "first_candidate_sample_html": samples[:2],
-            })
-        return jsonify({"url": url, "container_count": len(containers), "containers": out})
-    finally:
-        if driver:
-            try:
-                driver.quit()
-            except:
-                pass
-
 @app.route("/cache/clear", methods=["POST"])
 def clear_cache():
     results_cache.clear()
@@ -480,10 +406,7 @@ def clear_cache():
 
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok", "source": BASE, "endpoints": {
-        "GET /results/<slug>": "e.g. /results/jhapa-5 — returns 2082 results",
-        "POST /cache/clear":   "Flush cache",
-    }})
+    return jsonify({"status": "ok", "source": BASE})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
