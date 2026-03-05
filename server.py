@@ -6,7 +6,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from bs4 import BeautifulSoup
-import requests, re, time, logging, os, json
+import requests, re, time, logging, os, json, glob
 
 app = Flask(__name__, static_folder=".")
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -70,20 +70,57 @@ def make_driver():
     )
     opts.set_capability("goog:loggingPrefs", {"performance": "ALL"})
 
-    # On Railway (Nixpacks), chromium + chromedriver are installed system-wide
-    chromium_path    = "/run/current-system/sw/bin/chromium"
-    chromedriver_path = "/run/current-system/sw/bin/chromedriver"
+    # Try common paths for chromium on Railway/Nix environments
+    chromium_candidates = [
+        "/run/current-system/sw/bin/chromium",
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        "/snap/bin/chromium",
+    ]
+    
+    chromedriver_candidates = [
+        "/run/current-system/sw/bin/chromedriver",
+        "/usr/bin/chromedriver",
+    ]
+    
+    chromium_path = None
+    chromedriver_path = None
+    
+    # Find actual chromium
+    for path in chromium_candidates:
+        if os.path.exists(path):
+            chromium_path = path
+            break
+    
+    # Find actual chromedriver
+    for path in chromedriver_candidates:
+        if os.path.exists(path):
+            chromedriver_path = path
+            break
 
-    if os.path.exists(chromium_path):
-        # Railway / Nixpacks environment
+    if chromium_path and chromedriver_path:
+        # Use system Chromium + ChromeDriver
         opts.binary_location = chromium_path
-        logging.info("Using system Chromium (Railway/Nixpacks)")
+        logging.info(f"Using system Chromium: {chromium_path}")
+        logging.info(f"Using system ChromeDriver: {chromedriver_path}")
         return webdriver.Chrome(service=Service(chromedriver_path), options=opts)
     else:
-        # Local development — use webdriver-manager
+        # Fallback: use webdriver-manager with compatible version
+        logging.warning(f"System chromium not found, using webdriver-manager")
+        logging.info(f"  Checked chromium paths: {chromium_candidates}")
+        logging.info(f"  Checked chromedriver paths: {chromedriver_candidates}")
         from webdriver_manager.chrome import ChromeDriverManager
-        logging.info("Using ChromeDriverManager (local dev)")
-        return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=opts)
+        
+        # Use a version known to work in Railway
+        try:
+            logging.info("Installing ChromeDriver v120 (compatible with Railway)")
+            driver_path = ChromeDriverManager(version="120.0.0").install()
+            return webdriver.Chrome(service=Service(driver_path), options=opts)
+        except Exception as e:
+            logging.error(f"webdriver-manager v120 failed: {e}")
+            # Last resort: try without specifying version
+            logging.info("Falling back to default ChromeDriver version")
+            return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=opts)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
