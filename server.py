@@ -103,15 +103,27 @@ def _chrome_version(binary: str) -> str | None:
     return None
 
 
+def _arch_platform() -> str:
+    """Return the chrome-for-testing platform string for this machine."""
+    import platform
+    machine = platform.machine().lower()
+    if machine in ("aarch64", "arm64"):
+        return "linux-arm64"
+    return "linux64"
+
+
 def _chromedriver_url(version: str) -> str:
     """Return the correct storage.googleapis.com download URL for chromedriver."""
+    plat = _arch_platform()
     return (
         f"https://storage.googleapis.com/chrome-for-testing-public"
-        f"/{version}/linux64/chromedriver-linux64.zip"
+        f"/{version}/{plat}/chromedriver-{plat}.zip"
     )
 
 
 def make_driver():
+    import platform as _platform
+    logging.info(f"make_driver: arch={_platform.machine()} platform={_platform.platform()[:60]}")
     opts = Options()
     opts.add_argument("--headless=new")
     opts.add_argument("--no-sandbox")
@@ -145,6 +157,8 @@ def make_driver():
     chromedriver = _find_binary(
         "/run/current-system/sw/bin/chromedriver",
         "/nix/var/nix/profiles/default/bin/chromedriver",
+        # Ubuntu apt chromium-driver installs here:
+        "/usr/lib/chromium-browser/chromedriver",
         "/usr/bin/chromedriver",
         "/usr/local/bin/chromedriver",
     )
@@ -258,9 +272,10 @@ def _download_chrome_headless(version: str | None) -> str | None:
             r.raise_for_status()
             version = r.json()["channels"]["Stable"]["version"]
 
+        plat = _arch_platform()
         url = (
             f"https://storage.googleapis.com/chrome-for-testing-public"
-            f"/{version}/linux64/chrome-headless-shell-linux64.zip"
+            f"/{version}/{plat}/chrome-headless-shell-{plat}.zip"
         )
         logging.info(f"Downloading chrome-headless-shell from: {url}")
         r = requests.get(url, timeout=120)
