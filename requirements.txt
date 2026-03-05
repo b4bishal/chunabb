@@ -1,6 +1,6 @@
-flask
-flask-cors
-selenium
-webdriver-manager
-beautifulsoup4
-requests
+flask==3.0.0
+flask-cors==4.0.0
+selenium==4.15.2
+webdriver-manager==4.0.1
+beautifulsoup4==4.12.2
+requests==2.31.0
