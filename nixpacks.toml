@@ -1,7 +1,5 @@
 [phases.setup]
-nixPkgs = [
-  "python313"
-]
+aptPkgs = ["chromium-browser", "chromium-driver", "ca-certificates", "fonts-liberation"]
 
 [start]
 cmd = "python server.py"
