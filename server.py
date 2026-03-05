@@ -73,25 +73,36 @@ def make_driver():
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     )
     
-    # Use webdriver-manager with a fixed version (no Chrome detection needed)
+    # Try to use system Chrome if available
+    chrome_paths = [
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        "/usr/bin/google-chrome",
+        "/usr/bin/google-chrome-stable",
+    ]
+    
+    for chrome_path in chrome_paths:
+        if os.path.exists(chrome_path):
+            logging.info(f"Found Chrome at: {chrome_path}")
+            opts.binary_location = chrome_path
+            break
+    
+    # Use webdriver-manager to download compatible ChromeDriver
     logging.info("Creating Chrome WebDriver...")
     
-    # Try specific versions - this avoids detecting Chrome on the system
-    versions_to_try = ["120.0.6099.129", "119.0.6045.105", "118.0.5993.70"]
-    
-    for version in versions_to_try:
-        try:
-            logging.info(f"Trying ChromeDriver v{version}...")
-            driver_path = ChromeDriverManager(version=version).install()
-            logging.info(f"✓ ChromeDriver {version} installed at: {driver_path}")
-            return webdriver.Chrome(service=Service(driver_path), options=opts)
-        except Exception as e:
-            logging.warning(f"  v{version} failed: {e}")
-            continue
-    
-    # If all versions fail
-    logging.error("All ChromeDriver versions failed")
-    raise Exception("Could not install any ChromeDriver version")
+    try:
+        # Suppress webdriver-manager's Chrome detection to avoid errors
+        os.environ['WDM_LOG'] = '0'
+        
+        logging.info("Downloading ChromeDriver...")
+        driver_path = ChromeDriverManager().install()
+        logging.info(f"✓ ChromeDriver installed at: {driver_path}")
+        return webdriver.Chrome(service=Service(driver_path), options=opts)
+    except Exception as e:
+        logging.error(f"ChromeDriver installation failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 # ─────────────────────────────────────────────────────────────────────────────
