@@ -1,13 +1,13 @@
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
-import asyncio, requests, re, time, logging, os, json
-try:
-    from pyppeteer import launch
-    PYPPETEER_AVAILABLE = True
-except ImportError:
-    PYPPETEER_AVAILABLE = False
-    logging.warning("Pyppeteer not available, will use requests-only mode")
+import requests, re, time, logging, os, json
 
 app = Flask(__name__, static_folder=".")
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -55,45 +55,32 @@ def is_fresh(e):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Pyppeteer — handles Chromium automatically on all platforms
+# Selenium — optimized for Railway container
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def get_page_content(url: str) -> tuple:
-    """Fetch page with Pyppeteer, return (html, body_text)"""
-    browser = None
+def make_driver():
+    """Create a Chrome WebDriver with Railway-compatible settings."""
+    opts = Options()
+    opts.add_argument("--headless=new")
+    opts.add_argument("--no-sandbox")
+    opts.add_argument("--disable-dev-shm-usage")
+    opts.add_argument("--disable-gpu")
+    opts.add_argument("--window-size=1280,900")
+    opts.add_argument("--disable-web-resources")
+    opts.add_argument("--disable-extensions")
+    opts.add_argument(
+        "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    )
+    
+    # Use webdriver-manager to download compatible ChromeDriver
+    logging.info("Creating Chrome WebDriver...")
     try:
-        # Pyppeteer automatically downloads/bundles Chromium if needed
-        logging.info("Launching Pyppeteer browser...")
-        browser = await launch(
-            headless=True,
-            args=[
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-            ]
-        )
-        page = await browser.newPage()
-        await page.setUserAgent(
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-            'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-        )
-        await page.goto(url, {'waitUntil': 'networkidle2', 'timeout': 30000})
-        await page.waitForFunction(
-            "document.querySelectorAll('div.result-container').length > 0",
-            {'timeout': 30000}
-        )
-        await asyncio.sleep(2)  # Extra wait for JS to render
-        html = await page.content()
-        body_text = await page.evaluate('document.body.innerText')
-        await page.close()
-        return html, body_text
+        driver_path = ChromeDriverManager().install()
+        return webdriver.Chrome(service=Service(driver_path), options=opts)
     except Exception as e:
-        logging.error(f"Pyppeteer error: {e}")
+        logging.error(f"Failed to create driver: {e}")
         raise
-    finally:
-        if browser:
-            await browser.close()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -298,12 +285,22 @@ def parse_results_from_html(html: str, container_index: int = 1) -> list:
 def scrape(slug: str) -> dict:
     url = f"{BASE}/constituency/{slug}"
     logging.info(f"Scraping: {url}")
-    
-    # Run async Pyppeteer in sync context
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    driver = None
     try:
-        html, body_text = loop.run_until_complete(get_page_content(url))
+        driver = make_driver()
+        driver.get(url)
+        try:
+            WebDriverWait(driver, 30).until(
+                lambda d: bool(d.find_elements(
+                    By.CSS_SELECTOR,
+                    "div.result-container.col6, div.result-container"
+                ))
+            )
+        except Exception as e:
+            logging.warning(f"result-container wait timed out: {e}")
+        time.sleep(2)
+        html      = driver.page_source
+        body_text = driver.find_element(By.TAG_NAME, "body").text
         logging.info(f"HTML {len(html):,} chars  Body {len(body_text):,} chars")
         total_voters = parse_total_voters(body_text, html)
         candidates = parse_results_from_html(html, container_index=0)
@@ -326,7 +323,11 @@ def scrape(slug: str) -> dict:
             "candidates":        candidates,
         }
     finally:
-        loop.close()
+        if driver:
+            try:
+                driver.quit()
+            except:
+                pass
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -356,11 +357,19 @@ def get_results(slug: str):
 def debug_voters(slug: str):
     slug = slug.strip("/").lower()
     url  = f"{BASE}/constituency/{slug}"
-    
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    driver = None
     try:
-        html, body_text = loop.run_until_complete(get_page_content(url))
+        driver = make_driver()
+        driver.get(url)
+        try:
+            WebDriverWait(driver, 30).until(
+                lambda d: len(d.find_element(By.TAG_NAME, "body").text) > 300
+            )
+        except Exception:
+            pass
+        time.sleep(2)
+        html      = driver.page_source
+        body_text = driver.find_element(By.TAG_NAME, "body").text
         soup = BeautifulSoup(html, "html.parser")
         keywords = ["जम्मा", "पुरुष", "महिला", "मतदाता", "voter"]
         body_lines = body_text.splitlines()
@@ -385,17 +394,30 @@ def debug_voters(slug: str):
             "matching_elements": matching_elements[:15],
         })
     finally:
-        loop.close()
+        if driver:
+            try:
+                driver.quit()
+            except:
+                pass
 
 @app.route("/debug/<path:slug>")
 def debug_html(slug: str):
     slug = slug.strip("/").lower()
     url  = f"{BASE}/constituency/{slug}"
-    
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    driver = None
     try:
-        html, _ = loop.run_until_complete(get_page_content(url))
+        driver = make_driver()
+        driver.get(url)
+        try:
+            WebDriverWait(driver, 30).until(
+                lambda d: bool(d.find_elements(
+                    By.CSS_SELECTOR, "div.result-container.col6, div.result-container"
+                ))
+            )
+        except Exception:
+            pass
+        time.sleep(2)
+        html = driver.page_source
         soup = BeautifulSoup(html, "html.parser")
         containers = soup.find_all(
             "div", class_=lambda c: c and "result-container" in c and "col6" in c
@@ -423,7 +445,11 @@ def debug_html(slug: str):
             })
         return jsonify({"url": url, "container_count": len(containers), "containers": out})
     finally:
-        loop.close()
+        if driver:
+            try:
+                driver.quit()
+            except:
+                pass
 
 @app.route("/cache/clear", methods=["POST"])
 def clear_cache():
@@ -439,4 +465,4 @@ def health():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=False, threaded=False)
