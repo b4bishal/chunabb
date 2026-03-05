@@ -73,14 +73,25 @@ def make_driver():
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     )
     
-    # Use webdriver-manager to download compatible ChromeDriver
+    # Use webdriver-manager with a fixed version (no Chrome detection needed)
     logging.info("Creating Chrome WebDriver...")
-    try:
-        driver_path = ChromeDriverManager().install()
-        return webdriver.Chrome(service=Service(driver_path), options=opts)
-    except Exception as e:
-        logging.error(f"Failed to create driver: {e}")
-        raise
+    
+    # Try specific versions - this avoids detecting Chrome on the system
+    versions_to_try = ["120.0.6099.129", "119.0.6045.105", "118.0.5993.70"]
+    
+    for version in versions_to_try:
+        try:
+            logging.info(f"Trying ChromeDriver v{version}...")
+            driver_path = ChromeDriverManager(version=version).install()
+            logging.info(f"✓ ChromeDriver {version} installed at: {driver_path}")
+            return webdriver.Chrome(service=Service(driver_path), options=opts)
+        except Exception as e:
+            logging.warning(f"  v{version} failed: {e}")
+            continue
+    
+    # If all versions fail
+    logging.error("All ChromeDriver versions failed")
+    raise Exception("Could not install any ChromeDriver version")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
