@@ -6,7 +6,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from bs4 import BeautifulSoup
-import requests, re, time, logging, os, json, zipfile, shutil
+import requests, re, time, logging, os, json, shutil, subprocess
 
 app = Flask(__name__, static_folder=".")
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -54,98 +54,160 @@ def is_fresh(e):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ChromeDriver — Manual Download (bypasses webdriver-manager issues)
+# Selenium — robustly finds Chromium wherever it's installed
 # ─────────────────────────────────────────────────────────────────────────────
 
-def download_chromedriver(version="120.0.6099.129"):
-    """Download ChromeDriver directly from chrome-for-testing."""
-    cache_dir = os.path.expanduser("~/.chromedriver_cache")
-    os.makedirs(cache_dir, exist_ok=True)
-    
-    driver_path = os.path.join(cache_dir, f"chromedriver-{version}")
-    
-    # Return if already cached
-    if os.path.exists(driver_path) and os.path.getsize(driver_path) > 5000000:
-        logging.info(f"Using cached ChromeDriver: {driver_path}")
-        os.chmod(driver_path, 0o755)
-        return driver_path
-    
-    # Use chrome-for-testing (official repository)
-    url = f"https://googlechromelabs.github.io/chrome-for-testing/download/Linux_x64/{version}/chrome-linux64.zip"
-    logging.info(f"Downloading ChromeDriver {version}...")
-    logging.info(f"Downloading from: {url}")
-    
+def _find_binary(*candidates):
+    """Return the first existing binary path, or None."""
+    for c in candidates:
+        if c and os.path.isfile(c):
+            return c
+    # Also try PATH lookup
+    for name in candidates:
+        if name and not name.startswith("/"):
+            found = shutil.which(name)
+            if found:
+                return found
+    return None
+
+
+def _chrome_version(binary: str) -> str | None:
+    """Extract major.minor.build.patch version string from a Chrome/Chromium binary."""
     try:
-        zip_path = os.path.join(cache_dir, f"chromedriver-{version}.zip")
-        
-        # Use requests for better error handling
-        response = requests.get(url, timeout=60)
-        response.raise_for_status()
-        
-        with open(zip_path, 'wb') as f:
-            f.write(response.content)
-        
-        logging.info("Download complete, extracting...")
-        
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(cache_dir)
-        
-        # Find the extracted chromedriver in the chrome-linux64 subfolder
-        extracted_path = os.path.join(cache_dir, "chrome-linux64", "chromedriver")
-        
-        if not os.path.exists(extracted_path):
-            # Try alternate path
-            extracted_path = os.path.join(cache_dir, "chrome-linux64", "chrome")
-        
-        if os.path.exists(extracted_path):
-            # Make it executable
-            os.chmod(extracted_path, 0o755)
-            
-            # Copy to cache location
-            shutil.copy2(extracted_path, driver_path)
-            os.chmod(driver_path, 0o755)
-            logging.info(f"✓ ChromeDriver {version} cached at: {driver_path}")
-            
-            # Cleanup
-            try:
-                os.remove(zip_path)
-                shutil.rmtree(os.path.join(cache_dir, "chrome-linux64"))
-            except:
-                pass
-            
-            return driver_path
-        else:
-            raise Exception(f"ChromeDriver not found in extracted zip at {extracted_path}")
-            
+        out = subprocess.check_output(
+            [binary, "--version"], stderr=subprocess.DEVNULL, timeout=10
+        ).decode().strip()
+        # e.g. "Chromium 124.0.6367.82" or "Google Chrome 124.0.6367.82"
+        m = re.search(r"[\d]+\.[\d]+\.[\d]+\.[\d]+", out)
+        if m:
+            return m.group(0)
+        m = re.search(r"[\d]+\.[\d]+\.[\d]+", out)
+        if m:
+            return m.group(0)
     except Exception as e:
-        logging.error(f"Failed to download ChromeDriver: {e}")
-        raise
+        logging.warning(f"Could not get Chrome version from {binary}: {e}")
+    return None
+
+
+def _chromedriver_url(version: str) -> str:
+    """Return the correct storage.googleapis.com download URL for chromedriver."""
+    return (
+        f"https://storage.googleapis.com/chrome-for-testing-public"
+        f"/{version}/linux64/chromedriver-linux64.zip"
+    )
 
 
 def make_driver():
-    """Create a Chrome WebDriver."""
     opts = Options()
     opts.add_argument("--headless=new")
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
     opts.add_argument("--disable-gpu")
     opts.add_argument("--window-size=1280,900")
-    opts.add_argument("--disable-web-resources")
-    opts.add_argument("--disable-extensions")
     opts.add_argument(
         "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     )
-    
-    logging.info("Setting up Chrome WebDriver...")
+    opts.set_capability("goog:loggingPrefs", {"performance": "ALL"})
+
+    # ── 1. Find Chromium / Chrome binary ────────────────────────────────────
+    chromium = _find_binary(
+        # Nixpacks / Railway NixOS paths
+        "/run/current-system/sw/bin/chromium",
+        "/run/current-system/sw/bin/chromium-browser",
+        # Nix profile paths
+        "/nix/var/nix/profiles/default/bin/chromium",
+        "/nix/var/nix/profiles/default/bin/chromium-browser",
+        # Debian/Ubuntu system install
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        "/usr/bin/google-chrome",
+        "/usr/bin/google-chrome-stable",
+        # Snap
+        "/snap/bin/chromium",
+    )
+
+    # ── 2. Find ChromeDriver binary ──────────────────────────────────────────
+    chromedriver = _find_binary(
+        "/run/current-system/sw/bin/chromedriver",
+        "/nix/var/nix/profiles/default/bin/chromedriver",
+        "/usr/bin/chromedriver",
+        "/usr/local/bin/chromedriver",
+    )
+
+    if chromium and chromedriver:
+        logging.info(f"System Chromium: {chromium}")
+        logging.info(f"System ChromeDriver: {chromedriver}")
+        opts.binary_location = chromium
+        return webdriver.Chrome(service=Service(chromedriver), options=opts)
+
+    if chromium and not chromedriver:
+        # Binary found but no matching driver — use webdriver-manager with
+        # the CORRECT version string so it downloads from the right URL.
+        logging.info(f"Chromium found at {chromium}, locating matching ChromeDriver…")
+        opts.binary_location = chromium
+        version = _chrome_version(chromium)
+        logging.info(f"Detected Chrome version: {version}")
+        try:
+            from webdriver_manager.chrome import ChromeDriverManager
+            from webdriver_manager.core.os_manager import ChromeType
+            driver_path = ChromeDriverManager(
+                chrome_type=ChromeType.CHROMIUM,
+                driver_version=version,
+            ).install()
+            return webdriver.Chrome(service=Service(driver_path), options=opts)
+        except Exception as e:
+            logging.warning(f"webdriver-manager failed ({e}), trying manual download…")
+            driver_path = _download_chromedriver_manual(version)
+            return webdriver.Chrome(service=Service(driver_path), options=opts)
+
+    # ── 3. Fallback: let webdriver-manager handle everything (local dev) ─────
+    logging.info("No system Chromium found — using ChromeDriverManager (local dev)")
     try:
-        # Download ChromeDriver
-        driver_path = download_chromedriver(version="120.0.6099.129")
-        logging.info(f"Creating webdriver with: {driver_path}")
+        from webdriver_manager.chrome import ChromeDriverManager
+        driver_path = ChromeDriverManager().install()
         return webdriver.Chrome(service=Service(driver_path), options=opts)
     except Exception as e:
-        logging.error(f"Failed to create driver: {e}")
-        raise
+        logging.error(f"ChromeDriverManager failed: {e}")
+        raise RuntimeError(
+            "Could not start Chrome. Ensure chromium + chromedriver are installed."
+        ) from e
+
+
+def _download_chromedriver_manual(version: str | None) -> str:
+    """
+    Last-resort: download chromedriver from storage.googleapis.com
+    using the correct URL format (not the old googlechromelabs path).
+    """
+    import zipfile, io
+
+    if not version:
+        # Fetch latest stable version
+        r = requests.get(
+            "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json",
+            timeout=15,
+        )
+        r.raise_for_status()
+        version = r.json()["channels"]["Stable"]["version"]
+        logging.info(f"Latest stable ChromeDriver version: {version}")
+
+    url = _chromedriver_url(version)
+    logging.info(f"Downloading ChromeDriver from: {url}")
+    r = requests.get(url, timeout=60)
+    r.raise_for_status()
+
+    dest = "/tmp/chromedriver"
+    with zipfile.ZipFile(io.BytesIO(r.content)) as z:
+        for name in z.namelist():
+            if name.endswith("chromedriver") and "__MACOSX" not in name:
+                data = z.read(name)
+                with open(dest, "wb") as f:
+                    f.write(data)
+                os.chmod(dest, 0o755)
+                logging.info(f"ChromeDriver extracted to {dest}")
+                return dest
+
+    raise RuntimeError(f"chromedriver binary not found in zip from {url}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -350,9 +412,9 @@ def parse_results_from_html(html: str, container_index: int = 1) -> list:
 def scrape(slug: str) -> dict:
     url = f"{BASE}/constituency/{slug}"
     logging.info(f"Scraping: {url}")
-    driver = None
+    driver = make_driver()
     try:
-        driver = make_driver()
+        driver.execute_cdp_cmd("Network.enable", {})
         driver.get(url)
         try:
             WebDriverWait(driver, 30).until(
@@ -361,8 +423,8 @@ def scrape(slug: str) -> dict:
                     "div.result-container.col6, div.result-container"
                 ))
             )
-        except Exception as e:
-            logging.warning(f"result-container wait timed out: {e}")
+        except Exception:
+            logging.warning("result-container wait timed out")
         time.sleep(2)
         html      = driver.page_source
         body_text = driver.find_element(By.TAG_NAME, "body").text
@@ -388,11 +450,7 @@ def scrape(slug: str) -> dict:
             "candidates":        candidates,
         }
     finally:
-        if driver:
-            try:
-                driver.quit()
-            except:
-                pass
+        driver.quit()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -418,6 +476,94 @@ def get_results(slug: str):
         logging.error(f"Failed {slug}: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
+@app.route("/debug-voters/<path:slug>")
+def debug_voters(slug: str):
+    slug = slug.strip("/").lower()
+    url  = f"{BASE}/constituency/{slug}"
+    driver = make_driver()
+    try:
+        driver.get(url)
+        try:
+            WebDriverWait(driver, 30).until(
+                lambda d: len(d.find_element(By.TAG_NAME, "body").text) > 300
+            )
+        except Exception:
+            pass
+        time.sleep(2)
+        html      = driver.page_source
+        body_text = driver.find_element(By.TAG_NAME, "body").text
+        soup = BeautifulSoup(html, "html.parser")
+        keywords = ["जम्मा", "पुरुष", "महिला", "मतदाता", "voter"]
+        body_lines = body_text.splitlines()
+        context_lines = []
+        for i, line in enumerate(body_lines):
+            if any(k.lower() in line.lower() for k in keywords):
+                start = max(0, i-2)
+                end   = min(len(body_lines), i+5)
+                context_lines.append({"line_index": i, "context": body_lines[start:end]})
+        matching_elements = []
+        for el in soup.find_all(True):
+            own_text = el.get_text(separator=" ", strip=True)
+            if any(k in own_text for k in ["जम्मा मतदाता","पुरुष मतदाता","महिला मतदाता"]):
+                if len(own_text) < 500:
+                    matching_elements.append({
+                        "tag": el.name, "classes": el.get("class", []),
+                        "html": str(el)[:600], "text": own_text[:200],
+                    })
+        return jsonify({
+            "url": url, "body_line_count": len(body_lines),
+            "keyword_contexts": context_lines[:20],
+            "matching_elements": matching_elements[:15],
+        })
+    finally:
+        driver.quit()
+
+@app.route("/debug/<path:slug>")
+def debug_html(slug: str):
+    slug = slug.strip("/").lower()
+    url  = f"{BASE}/constituency/{slug}"
+    driver = make_driver()
+    try:
+        driver.get(url)
+        try:
+            WebDriverWait(driver, 30).until(
+                lambda d: bool(d.find_elements(
+                    By.CSS_SELECTOR, "div.result-container.col6, div.result-container"
+                ))
+            )
+        except Exception:
+            pass
+        time.sleep(2)
+        html = driver.page_source
+        soup = BeautifulSoup(html, "html.parser")
+        containers = soup.find_all(
+            "div", class_=lambda c: c and "result-container" in c and "col6" in c
+        )
+        if not containers:
+            containers = soup.find_all(
+                "div", class_=lambda c: c and "result-container" in c
+            )
+        out = []
+        for i, c in enumerate(containers):
+            anchors = c.find_all("a", href=re.compile(r"/candidate/"))[:6]
+            samples = []
+            for a in anchors:
+                node = a
+                for _ in range(5):
+                    if node.parent: node = node.parent
+                samples.append(str(node)[:2000])
+            out.append({
+                "index": i, "classes": c.get("class", []),
+                "text_preview": c.get_text(separator="|", strip=True)[:400],
+                "candidate_anchor_count": len(c.find_all("a", href=re.compile(r"/candidate/"))),
+                "img_count": len(c.find_all("img")),
+                "all_img_srcs": [img.get("src","") for img in c.find_all("img", src=True)][:20],
+                "first_candidate_sample_html": samples[:2],
+            })
+        return jsonify({"url": url, "container_count": len(containers), "containers": out})
+    finally:
+        driver.quit()
+
 @app.route("/cache/clear", methods=["POST"])
 def clear_cache():
     results_cache.clear()
@@ -425,8 +571,36 @@ def clear_cache():
 
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok", "source": BASE})
+    # Report what binaries were found
+    chromium = (
+        _find_binary(
+            "/run/current-system/sw/bin/chromium",
+            "/run/current-system/sw/bin/chromium-browser",
+            "/nix/var/nix/profiles/default/bin/chromium",
+            "/usr/bin/chromium", "/usr/bin/chromium-browser",
+            "/usr/bin/google-chrome", "/snap/bin/chromium",
+        ) or "not found"
+    )
+    chromedriver = (
+        _find_binary(
+            "/run/current-system/sw/bin/chromedriver",
+            "/nix/var/nix/profiles/default/bin/chromedriver",
+            "/usr/bin/chromedriver", "/usr/local/bin/chromedriver",
+        ) or "not found"
+    )
+    return jsonify({
+        "status": "ok",
+        "source": BASE,
+        "chromium": chromium,
+        "chromedriver": chromedriver,
+        "chrome_version": _chrome_version(chromium) if chromium != "not found" else None,
+        "endpoints": {
+            "GET /results/<slug>": "e.g. /results/jhapa-5 — returns 2082 results",
+            "POST /cache/clear":   "Flush cache",
+            "GET /health":         "Binary paths + version info",
+        },
+    })
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False, threaded=False)
+    app.run(host="0.0.0.0", port=port, debug=False)
