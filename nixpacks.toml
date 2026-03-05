@@ -1,5 +1,4 @@
-[phases.setup]
-aptPkgs = ["chromium-browser", "chromium-driver", "ca-certificates", "fonts-liberation"]
-
+# Railway will use Dockerfile automatically when present.
+# This file is kept only as a fallback hint.
 [start]
 cmd = "python server.py"
