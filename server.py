@@ -123,7 +123,7 @@ def _chromedriver_url(version: str) -> str:
 
 def make_driver():
     import platform as _platform
-    logging.info(f"make_driver: arch={_platform.machine()} platform={_platform.platform()[:60]}")
+    logging.info(f"make_driver: arch={_platform.machine()} glibc={_platform.libc_ver()}")
     opts = Options()
     opts.add_argument("--headless=new")
     opts.add_argument("--no-sandbox")
@@ -136,86 +136,47 @@ def make_driver():
     )
     opts.set_capability("goog:loggingPrefs", {"performance": "ALL"})
 
-    # ── 1. Find Chromium / Chrome binary ────────────────────────────────────
+    # ── 1. Find Chromium binary ───────────────────────────────────────────────
     chromium = _find_binary(
-        # Nixpacks / Railway NixOS paths
-        "/run/current-system/sw/bin/chromium",
-        "/run/current-system/sw/bin/chromium-browser",
-        # Nix profile paths
-        "/nix/var/nix/profiles/default/bin/chromium",
-        "/nix/var/nix/profiles/default/bin/chromium-browser",
-        # Debian/Ubuntu system install
-        "/usr/bin/chromium",
-        "/usr/bin/chromium-browser",
+        "/usr/bin/chromium",           # Debian apt: chromium
+        "/usr/bin/chromium-browser",   # Ubuntu apt: chromium-browser
         "/usr/bin/google-chrome",
         "/usr/bin/google-chrome-stable",
-        # Snap
+        "/run/current-system/sw/bin/chromium",
         "/snap/bin/chromium",
     )
 
-    # ── 2. Find ChromeDriver binary ──────────────────────────────────────────
+    # ── 2. Find ChromeDriver binary ───────────────────────────────────────────
     chromedriver = _find_binary(
-        "/run/current-system/sw/bin/chromedriver",
-        "/nix/var/nix/profiles/default/bin/chromedriver",
-        # Ubuntu apt chromium-driver installs here:
-        "/usr/lib/chromium-browser/chromedriver",
-        "/usr/bin/chromedriver",
+        "/usr/bin/chromedriver",            # Debian apt: chromium-driver
+        "/usr/lib/chromium-browser/chromedriver",  # Ubuntu apt: chromium-driver
         "/usr/local/bin/chromedriver",
+        "/run/current-system/sw/bin/chromedriver",
     )
 
-    if chromium and chromedriver:
-        logging.info(f"System Chromium: {chromium}")
-        logging.info(f"System ChromeDriver: {chromedriver}")
+    if chromium:
+        logging.info(f"Chromium binary: {chromium}")
         opts.binary_location = chromium
+    else:
+        logging.warning("No Chromium binary found — will rely on PATH")
+
+    if chromedriver:
+        logging.info(f"ChromeDriver binary: {chromedriver}")
         return webdriver.Chrome(service=Service(chromedriver), options=opts)
 
-    if chromium and not chromedriver:
-        # Binary found but no matching driver — use webdriver-manager with
-        # the CORRECT version string so it downloads from the right URL.
-        logging.info(f"Chromium found at {chromium}, locating matching ChromeDriver…")
-        opts.binary_location = chromium
-        version = _chrome_version(chromium)
-        logging.info(f"Detected Chrome version: {version}")
-        try:
-            from webdriver_manager.chrome import ChromeDriverManager
-            from webdriver_manager.core.os_manager import ChromeType
-            driver_path = ChromeDriverManager(
-                chrome_type=ChromeType.CHROMIUM,
-                driver_version=version,
-            ).install()
-            return webdriver.Chrome(service=Service(driver_path), options=opts)
-        except Exception as e:
-            logging.warning(f"webdriver-manager failed ({e}), trying manual download…")
-            driver_path = _download_chromedriver_manual(version)
-            return webdriver.Chrome(service=Service(driver_path), options=opts)
-
-    # ── 3. Log PATH contents to help diagnose missing binaries ─────────────
-    try:
-        scan = subprocess.check_output(
-            r"find /run /nix /usr/bin /usr/local/bin /snap/bin "
-            r"-maxdepth 6 \( -name 'chrom*' -o -name 'google-chrome*' \) 2>/dev/null | head -20",
-            shell=True, timeout=10
-        ).decode().strip()
-        logging.warning(f"No Chromium found. Filesystem scan:\n{scan or '(nothing found)'}")
-    except Exception:
-        pass
-
-    # ── 4. Try webdriver-manager (works on local dev if installed) ──────────
+    # ── 3. Local dev fallback: webdriver-manager ──────────────────────────────
+    logging.warning("No system chromedriver found — trying webdriver-manager (local dev only)")
     try:
         from webdriver_manager.chrome import ChromeDriverManager
-        logging.info("Falling back to ChromeDriverManager…")
-        driver_path = ChromeDriverManager().install()
+        from webdriver_manager.core.os_manager import ChromeType
+        wdm_type = ChromeType.CHROMIUM if chromium else ChromeType.GOOGLE
+        driver_path = ChromeDriverManager(chrome_type=wdm_type).install()
         return webdriver.Chrome(service=Service(driver_path), options=opts)
     except Exception as e:
-        logging.warning(f"ChromeDriverManager unavailable: {e}")
-
-    # ── 5. Last resort: download chrome-for-testing directly ──────────────
-    logging.info("Attempting manual chrome-for-testing download…")
-    driver_path = _download_chromedriver_manual(None)
-    chrome_path = _download_chrome_headless(None)
-    if chrome_path:
-        opts.binary_location = chrome_path
-    return webdriver.Chrome(service=Service(driver_path), options=opts)
+        raise RuntimeError(
+            f"ChromeDriver not found and webdriver-manager failed: {e}\n"
+            "On Railway: ensure Dockerfile installs chromium + chromium-driver via apt."
+        ) from e
 
 
 def _download_chromedriver_manual(version: str | None) -> str:
