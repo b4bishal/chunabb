@@ -1,12 +1,6 @@
 [phases.setup]
 nixPkgs = [
-  "chromium",
-  "chromedriver",
   "python313",
-  "glib",
-  "nss",
-  "cups",
-  "libxss",
   "libx11",
   "libxcomposite",
   "libxcursor",
