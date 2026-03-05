@@ -1,5 +1,26 @@
 [phases.setup]
-nixPkgs = ["chromium", "chromedriver"]
+nixPkgs = [
+  "chromium",
+  "chromedriver",
+  "python313",
+  "glib",
+  "nss",
+  "cups",
+  "libxss",
+  "libx11",
+  "libxcomposite",
+  "libxcursor",
+  "libxdamage",
+  "libxext",
+  "libxfixes",
+  "libxi",
+  "libxrandr",
+  "libxrender",
+  "libxinerama",
+  "atk",
+  "at-spi2-atk",
+  "dbus"
+]
 
 [start]
 cmd = "python server.py"
