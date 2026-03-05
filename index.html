@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>नेपाल निर्वाचन परिणाम २०८२</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Tiro+Devanagari+Nepal:ital@0;1&family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root{
+      --red:#c0392b; --gold:#e67e22; --green:#27ae60; --blue:#2563eb;
+      --ink:#1a1a2e; --paper:#fdf6ec; --muted:#7b6e5d;
+      --border:#d4c4a8; --card:#fff9f0;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:'DM Mono',monospace;
+      background:var(--paper);color:var(--ink);
+      min-height:100vh;display:flex;flex-direction:column;align-items:center;
+      padding:2rem 1rem 5rem;
+      background-image:repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(0,0,0,.033) 39px,rgba(0,0,0,.033) 40px);
+    }
+
+    /* ── Header ── */
+    header{width:100%;max-width:740px;margin-bottom:1.75rem;border-top:4px solid var(--red);padding-top:1.2rem}
+    .eyebrow{font-size:.64rem;letter-spacing:.22em;text-transform:uppercase;color:var(--red);display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem}
+    .dot-pulse{width:7px;height:7px;border-radius:50%;background:var(--red);animation:pulse 1.5s infinite;flex-shrink:0}
+    @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.75)}}
+    h1{font-family:'Syne',sans-serif;font-size:clamp(1.5rem,5vw,2.1rem);font-weight:800;line-height:1.1;margin:.15rem 0}
+    h1 em{color:var(--red);font-style:normal}
+    .subtitle{font-family:'Tiro Devanagari Nepal',serif;font-size:.9rem;color:var(--muted);margin-top:.15rem}
+
+    /* ── Panel ── */
+    .panel{width:100%;max-width:740px;background:var(--card);border:1.5px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:.9rem}
+    .ps{padding:1rem 1.5rem;border-bottom:1px solid var(--border)}
+    .ps:last-child{border-bottom:none}
+    .sec-label{font-size:.57rem;letter-spacing:.17em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+
+    /* ── Dropdowns ── */
+    .selects{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem}
+    @media(max-width:560px){.selects{grid-template-columns:1fr}}
+    select{
+      width:100%;padding:.62rem .65rem;border:1.5px solid var(--border);border-radius:4px;
+      font-family:'Tiro Devanagari Nepal',serif;font-size:.87rem;
+      background:#fff;color:var(--ink);cursor:pointer;appearance:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237b6e5d' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-position:right .6rem center;
+    }
+    select:focus{outline:none;border-color:var(--red)}
+    select:disabled{opacity:.38;cursor:not-allowed}
+    .url-bar{font-size:.61rem;color:var(--muted);margin-top:.45rem}
+    .url-bar span{opacity:.6}
+
+    /* ── Status ── */
+    #status{display:flex;align-items:center;gap:.5rem;font-size:.67rem;color:var(--muted);padding:.3rem 0}
+    #status .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
+    #status.loading .dot{background:var(--gold);animation:blink 1s infinite}
+    #status.success .dot{background:var(--green)}
+    #status.error   .dot{background:var(--red)}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+    /* ── Voter Stats ── */
+    #voter-panel{display:none}
+    #voter-panel.on{display:block}
+    .stats-row{
+      display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem;
+      padding:1rem 1.5rem;
+    }
+    .sbox{
+      border:1.5px solid var(--border);border-radius:5px;
+      padding:.8rem .95rem;background:#fffdf8;
+      position:relative;overflow:hidden;
+    }
+    .sbox::after{
+      content:'';position:absolute;top:0;left:0;right:0;height:3px;
+    }
+    .sbox.t::after{background:var(--ink)}
+    .sbox.m::after{background:var(--green)}
+    .sbox.f::after{background:var(--gold)}
+    .sbox-icon{font-size:1.1rem;line-height:1;margin-bottom:.3rem}
+    .sbox-lbl{font-family:'Tiro Devanagari Nepal',serif;font-size:.7rem;color:var(--muted);line-height:1.4;margin-bottom:.3rem}
+    .sbox-val{font-family:'Syne',sans-serif;font-size:1.15rem;font-weight:800}
+    .sbox.t .sbox-val{color:var(--ink)}
+    .sbox.m .sbox-val{color:var(--green)}
+    .sbox.f .sbox-val{color:var(--gold)}
+
+    /* ── Year badge ── */
+    .year-badge{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:.7rem 1.5rem;background:rgba(192,57,43,.05);
+      border-bottom:1px solid var(--border);
+    }
+    .year-tag{
+      font-family:'Syne',sans-serif;font-weight:800;font-size:.8rem;
+      color:var(--red);letter-spacing:.05em;
+    }
+    .cand-count{font-size:.65rem;color:var(--muted)}
+
+    /* ── Candidate cards ── */
+    #results{display:flex;flex-direction:column}
+
+    .ccard{
+      display:grid;
+      grid-template-columns: 2.2rem 62px 1fr 90px;
+      grid-template-rows: auto 5px;
+      grid-template-areas:
+        "rank photo info  votes"
+        "rank photo bar   bar";
+      column-gap:.95rem;
+      padding:.9rem 1.5rem .8rem;
+      border-bottom:1px solid var(--border);
+      align-items:center;
+      animation:up .22s ease both;
+      transition:background .1s;
+    }
+    .ccard:last-child{border-bottom:none}
+    .ccard:hover{background:rgba(0,0,0,.011)}
+    .ccard.win{
+      background:linear-gradient(90deg,rgba(192,57,43,.06),transparent 60%);
+      border-left:3px solid var(--red);
+      padding-left:calc(1.5rem - 3px);
+    }
+    @keyframes up{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+    .cr{grid-area:rank;font-size:.62rem;color:var(--muted);text-align:center;line-height:1;align-self:center}
+    .ccard.win .cr{color:var(--red);font-size:.85rem;font-weight:800}
+
+    .cp-wrap{
+      grid-area:photo;position:relative;
+      width:58px;height:58px;flex-shrink:0;align-self:center;
+    }
+    .cp-img{width:58px;height:58px;border-radius:50%;object-fit:cover;border:2px solid var(--border);display:block}
+    .ccard.win .cp-img{border-color:var(--red)}
+    .cp-fb{width:58px;height:58px;border-radius:50%;background:linear-gradient(135deg,#e8ddd0,#d4c4a8);display:flex;align-items:center;justify-content:center;font-size:1.5rem}
+
+    .party-badge{
+      position:absolute;bottom:-3px;right:-5px;
+      width:22px;height:22px;border-radius:50%;
+      border:2px solid #fff;overflow:hidden;background:#fff;
+      box-shadow:0 1px 4px rgba(0,0,0,.15);
+      display:flex;align-items:center;justify-content:center;
+    }
+    .party-badge img{width:100%;height:100%;object-fit:contain}
+    .party-badge-txt{font-size:.5rem;font-weight:800;color:var(--muted);text-align:center;line-height:1.1;padding:1px}
+
+    .ci{grid-area:info;min-width:0;align-self:center;display:flex;flex-direction:column;gap:.25rem}
+    .ci-name{font-family:'Tiro Devanagari Nepal',serif;font-size:1.02rem;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ccard.win .ci-name{font-weight:700}
+    .ci-party{display:flex;align-items:center;gap:.35rem;}
+    .ci-party-logo{width:14px;height:14px;object-fit:contain;flex-shrink:0}
+    .ci-party-name{font-size:.62rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+    .cv{grid-area:votes;align-self:center;display:flex;flex-direction:column;align-items:flex-end;gap:.18rem}
+    .cv-num{font-family:'Syne',sans-serif;font-size:1rem;font-weight:800;white-space:nowrap}
+    .ccard.win .cv-num{color:var(--red)}
+    .cv-lbl{font-size:.57rem;color:var(--muted);letter-spacing:.04em}
+    .cv-none{font-size:.62rem;color:var(--muted)}
+    .cv-win{font-size:.58rem;background:var(--red);color:#fff;padding:.1rem .38rem;border-radius:3px;letter-spacing:.04em;margin-top:.05rem}
+
+    .cb{grid-area:bar;height:4px;background:rgba(0,0,0,.07);border-radius:3px;overflow:hidden;align-self:end;margin-top:.25rem}
+    .cb-fill{height:100%;border-radius:3px;transition:width .65s cubic-bezier(.4,0,.2,1)}
+    .ccard.win .cb-fill{background:var(--red)}
+    .ccard:not(.win) .cb-fill{background:#b0a090}
+
+    .placeholder{padding:2.5rem 1.5rem;text-align:center;color:var(--muted);font-size:.85rem;line-height:2.2;font-family:'Tiro Devanagari Nepal',serif}
+    .placeholder small{opacity:.55;font-size:.72rem}
+
+    .actions{display:flex;align-items:center;gap:.55rem}
+    button{padding:.45rem .9rem;border:1.5px solid var(--ink);border-radius:4px;font-family:'DM Mono',monospace;font-size:.68rem;background:var(--ink);color:#fff;cursor:pointer;transition:all .13s;white-space:nowrap}
+    button:hover{background:var(--red);border-color:var(--red)}
+    button:active{transform:scale(.97)}
+    button:disabled{opacity:.38;cursor:not-allowed;transform:none}
+    button.sec{background:transparent;color:var(--ink)}
+    button.sec:hover{background:var(--ink);color:#fff}
+    .auto-lbl{font-size:.62rem;color:var(--muted);margin-left:auto}
+    #cd{color:var(--gold);font-weight:700}
+
+    footer{
+      width:100%;max-width:740px;
+      margin-top:2.5rem;
+      padding:1.5rem 0 .5rem;
+      border-top:1px solid var(--border);
+      display:flex;flex-direction:column;align-items:center;gap:.4rem;
+      text-align:center;
+    }
+    .footer-by{font-size:.62rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+    .footer-name{font-family:'Syne',sans-serif;font-size:1.05rem;font-weight:800;color:var(--ink);letter-spacing:.02em;}
+    .footer-link{font-size:.72rem;color:var(--red);text-decoration:none;letter-spacing:.03em;border-bottom:1px dashed rgba(192,57,43,.35);padding-bottom:1px;transition:border-color .15s;}
+    .footer-link:hover{border-color:var(--red)}
+    .footer-copy{font-size:.58rem;color:var(--muted);opacity:.55;margin-top:.3rem}
+  </style>
+</head>
+<body>
+
+<header>
+  <p class="eyebrow"><span class="dot-pulse"></span>Live · प्रतिनिधि सभा निर्वाचन २०८२</p>
+  <h1>नेपाल <em>निर्वाचन</em> परिणाम</h1>
+  <p class="subtitle">Election Results 2082 — by Bishal Kafle</p>
+</header>
+
+<!-- Dropdowns -->
+<div class="panel">
+  <div class="ps">
+    <p class="sec-label">क्षेत्र छान्नुहोस् — Select Constituency</p>
+    <div class="selects">
+      <select id="sp"><option value="">— प्रदेश —</option></select>
+      <select id="sd" disabled><option value="">— जिल्ला —</option></select>
+      <select id="sa" disabled><option value="">— निर्वाचन क्षेत्र —</option></select>
+    </div>
+    <div class="url-bar" id="ub"></div>
+  </div>
+  <div class="ps" style="padding:.52rem 1.5rem">
+    <div id="status"><span class="dot"></span><span id="st">प्रदेश छान्नुहोस्…</span></div>
+  </div>
+</div>
+
+<!-- Voter Stats -->
+<div class="panel" id="voter-panel">
+  <div class="stats-row">
+    <div class="sbox t">
+      <div class="sbox-icon">🗳️</div>
+      <div class="sbox-lbl">जम्मा मतदाता<br/><span>Total Voters</span></div>
+      <div class="sbox-val" id="sv-t">—</div>
+    </div>
+    <div class="sbox m">
+      <div class="sbox-icon">✅</div>
+      <div class="sbox-lbl">मत गणना भएको<br/><span>Total Counted</span></div>
+      <div class="sbox-val" id="sv-counted">—</div>
+    </div>
+    <div class="sbox f">
+      <div class="sbox-icon">⏳</div>
+      <div class="sbox-lbl">बाँकी मत<br/><span>Remaining</span></div>
+      <div class="sbox-val" id="sv-remaining">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- Results -->
+<div class="panel">
+  <div id="results">
+    <div class="placeholder">
+      प्रदेश → जिल्ला → निर्वाचन क्षेत्र छान्नुहोस्<br/>
+      <small>२०८२ को निर्वाचन परिणाम देखिनेछ</small>
+    </div>
+  </div>
+  <div class="ps">
+    <div class="actions">
+      <button id="br" disabled>↺ Refresh</button>
+      <button id="bc" class="sec" disabled>✕ Cache</button>
+      <span class="auto-lbl">Auto in <span id="cd">—</span>s</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── KEY CHANGE: use relative URL so it works both locally and on Railway ──
+  const API = window.location.origin;
+
+  const RPBASE = 'https://election.ratopati.com/constituency';
+  const AUTO = 30, DEB = 350;
+
+  let busy=false, abort=null, deb=null, ctmr=null, cv=AUTO;
+
+  const $  = id => document.getElementById(id);
+  const sp = $('sp'), sd = $('sd'), sa = $('sa');
+  const re = $('results'), st = $('status'), stxt = $('st');
+  const cdel = $('cd'), ub = $('ub'), vp = $('voter-panel');
+  const br = $('br'), bc = $('bc');
+
+  function ss(m,s=''){st.className=s; stxt.textContent=m;}
+  function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function pv(v){
+    const m={'०':'0','१':'1','२':'2','३':'3','४':'4','५':'5','६':'6','७':'7','८':'8','९':'9'};
+    return parseInt(String(v??'0').replace(/[०-९]/g,d=>m[d]).replace(/\D/g,''),10)||0;
+  }
+
+  const NAV = [
+    {name:"🏔 Province 1 — Koshi",districts:[
+      {name:"Taplejung",slug:"taplejung",a:[1]},{name:"Panchthar",slug:"panchthar",a:[1]},
+      {name:"Ilam",slug:"ilam",a:[1,2]},{name:"Jhapa",slug:"jhapa",a:[1,2,3,4,5]},
+      {name:"Morang",slug:"morang",a:[1,2,3,4,5,6]},{name:"Sunsari",slug:"sunsari",a:[1,2,3,4]},
+      {name:"Dhankuta",slug:"dhankuta",a:[1]},{name:"Tehrathum",slug:"tehrathum",a:[1]},
+      {name:"Sankhuwasabha",slug:"sankhuwasabha",a:[1]},{name:"Bhojpur",slug:"bhojpur",a:[1]},
+      {name:"Solukhumbu",slug:"solukhumbu",a:[1]},{name:"Okhaldhunga",slug:"okhaldhunga",a:[1]},
+      {name:"Khotang",slug:"khotang",a:[1]},{name:"Udayapur",slug:"udayapur",a:[1,2]},
+    ]},
+    {name:"🌾 Province 2 — Madhesh",districts:[
+      {name:"Saptari",slug:"saptari",a:[1,2,3,4]},{name:"Siraha",slug:"siraha",a:[1,2,3,4]},
+      {name:"Dhanusha",slug:"dhanusha",a:[1,2,3,4]},{name:"Mahottari",slug:"mahottari",a:[1,2,3]},
+      {name:"Sarlahi",slug:"sarlahi",a:[1,2,3,4]},{name:"Rautahat",slug:"rautahat",a:[1,2,3,4]},
+      {name:"Bara",slug:"bara",a:[1,2,3,4]},{name:"Parsa",slug:"parsa",a:[1,2,3,4]},
+    ]},
+    {name:"🏔 Province 3 — Bagmati",districts:[
+      {name:"Dolakha",slug:"dolakha",a:[1]},{name:"Sindhupalchok",slug:"sindhupalchok",a:[1,2]},
+      {name:"Rasuwa",slug:"rasuwa",a:[1]},{name:"Dhading",slug:"dhading",a:[1,2]},
+      {name:"Nuwakot",slug:"nuwakot",a:[1,2]},{name:"Kathmandu",slug:"kathmandu",a:[1,2,3,4,5,6,7,8,9,10]},
+      {name:"Bhaktapur",slug:"bhaktapur",a:[1,2]},{name:"Lalitpur",slug:"lalitpur",a:[1,2,3]},
+      {name:"Kavrepalanchok",slug:"kavre",a:[1,2]},{name:"Sindhuli",slug:"sindhuli",a:[1,2]},
+      {name:"Makwanpur",slug:"makwanpur",a:[1,2]},{name:"Chitwan",slug:"chitwan",a:[1,2,3]},
+    ]},
+    {name:"🌄 Province 4 — Gandaki",districts:[
+      {name:"Gorkha",slug:"gorkha",a:[1,2]},{name:"Lamjung",slug:"lamjung",a:[1]},
+      {name:"Tanahun",slug:"tanahun",a:[1,2]},{name:"Kaski",slug:"kaski",a:[1,2,3]},
+      {name:"Syangja",slug:"syangja",a:[1,2]},{name:"Manang",slug:"manang",a:[1]},
+      {name:"Mustang",slug:"mustang",a:[1]},{name:"Myagdi",slug:"myagdi",a:[1]},
+      {name:"Parbat",slug:"parbat",a:[1]},{name:"Baglung",slug:"baglung",a:[1,2]},
+      {name:"Nawalpur",slug:"nawalpur",a:[1,2]},
+    ]},
+    {name:"🌾 Province 5 — Lumbini",districts:[
+      {name:"Rupandehi",slug:"rupandehi",a:[1,2,3,4,5]},{name:"Kapilvastu",slug:"kapilvastu",a:[1,2,3]},
+      {name:"Arghakhanchi",slug:"arghakhanchi",a:[1,2]},{name:"Gulmi",slug:"gulmi",a:[1,2,3]},
+      {name:"Palpa",slug:"palpa",a:[1,2]},{name:"Nawalparasi West",slug:"nawalparasi-west",a:[1,2]},
+      {name:"Rolpa",slug:"rolpa",a:[1,2]},{name:"Pyuthan",slug:"pyuthan",a:[1,2]},
+      {name:"Dang",slug:"dang",a:[1,2,3]},{name:"Banke",slug:"banke",a:[1,2,3]},
+      {name:"Bardiya",slug:"bardiya",a:[1,2]},
+    ]},
+    {name:"⛰ Province 6 — Karnali",districts:[
+      {name:"Dolpa",slug:"dolpa",a:[1]},{name:"Mugu",slug:"mugu",a:[1]},
+      {name:"Humla",slug:"humla",a:[1]},{name:"Jumla",slug:"jumla",a:[1]},
+      {name:"Kalikot",slug:"kalikot",a:[1]},{name:"Jajarkot",slug:"jajarkot",a:[1,2]},
+      {name:"Rukum East",slug:"rukum-east",a:[1]},{name:"Salyan",slug:"salyan",a:[1,2]},
+      {name:"Surkhet",slug:"surkhet",a:[1,2]},{name:"Dailekh",slug:"dailekh",a:[1,2]},
+    ]},
+    {name:"🌊 Province 7 — Sudurpashchim",districts:[
+      {name:"Bajura",slug:"bajura",a:[1]},{name:"Bajhang",slug:"bajhang",a:[1,2]},
+      {name:"Achham",slug:"achham",a:[1,2]},{name:"Doti",slug:"doti",a:[1]},
+      {name:"Baitadi",slug:"baitadi",a:[1,2]},{name:"Dadeldhura",slug:"dadeldhura",a:[1]},
+      {name:"Kanchanpur",slug:"kanchanpur",a:[1,2,3]},{name:"Kailali",slug:"kailali",a:[1,2,3,4,5]},
+    ]},
+  ];
+
+  NAV.forEach((p,pi)=>{
+    const o=document.createElement('option');
+    o.value=pi; o.textContent=p.name; sp.appendChild(o);
+  });
+
+  sp.onchange=()=>{
+    const pi=sp.value;
+    sd.innerHTML='<option value="">— जिल्ला —</option>';
+    sa.innerHTML='<option value="">— निर्वाचन क्षेत्र —</option>';
+    sd.disabled=sa.disabled=true; br.disabled=true;
+    ub.innerHTML=''; re.innerHTML='<div class="placeholder">जिल्ला छान्नुहोस्…</div>';
+    vp.classList.remove('on');
+    if(pi==='') return;
+    NAV[pi].districts.forEach((d,di)=>{
+      const o=document.createElement('option');
+      o.value=di; o.textContent=`${d.name} (${d.a.length})`; sd.appendChild(o);
+    });
+    sd.disabled=false; ss(NAV[pi].name,'success');
+  };
+
+  sd.onchange=()=>{
+    const pi=sp.value, di=sd.value;
+    sa.innerHTML='<option value="">— निर्वाचन क्षेत्र —</option>';
+    sa.disabled=true; br.disabled=true; ub.innerHTML='';
+    re.innerHTML='<div class="placeholder">निर्वाचन क्षेत्र छान्नुहोस्…</div>';
+    vp.classList.remove('on');
+    if(pi===''||di==='') return;
+    const dist=NAV[pi].districts[di];
+    dist.a.forEach(n=>{
+      const o=document.createElement('option');
+      o.value=`${dist.slug}-${n}`; o.textContent=`${dist.name}-${n}`; sa.appendChild(o);
+    });
+    sa.disabled=false; ss(`${dist.name} — ${dist.a.length} area(s)`,'success');
+  };
+
+  sa.onchange=()=>{
+    const slug=sa.value; if(!slug) return;
+    br.disabled=false; bc.disabled=false;
+    ub.innerHTML=`<span>निर्वाचन क्षेत्र: ${esc(slug)}</span>`;
+    clearTimeout(deb); deb=setTimeout(()=>fetch2(slug), DEB);
+  };
+
+  function showVS(totalVoters, candidates){
+    const totalCounted = candidates.reduce((sum, c) => sum + (c.votes_int || pv(c.votes)), 0);
+    const remaining    = totalVoters > 0 ? Math.max(totalVoters - totalCounted, 0) : null;
+    $('sv-t').textContent         = totalVoters > 0  ? totalVoters.toLocaleString()  : '—';
+    $('sv-counted').textContent   = totalCounted > 0  ? totalCounted.toLocaleString() : '—';
+    $('sv-remaining').textContent = remaining !== null ? remaining.toLocaleString()   : '—';
+    if(totalVoters > 0 || totalCounted > 0){
+      vp.classList.add('on');
+    } else {
+      vp.classList.remove('on');
+    }
+  }
+
+  async function fetch2(slug){
+    if(!slug||busy) return;
+    if(abort) abort.abort();
+    abort=new AbortController(); busy=true;
+    resetCD(); ss('Scraping २०८२ results…','loading'); br.disabled=true;
+    vp.classList.remove('on');
+    try{
+      const r=await fetch(`${API}/results/${encodeURIComponent(slug)}`,{signal:abort.signal});
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data=await r.json();
+      if(data.error) throw new Error(data.error);
+      showVS(data.total_voters || 0, data.candidates || []);
+      renderCards(data);
+      ss(`✓ ${data.scraped_at} · ${data.candidates?.length||0} उम्मेदवार · २०८२`,'success');
+    }catch(e){
+      if(e.name==='AbortError') return;
+      ss(`Error: ${e.message}`,'error');
+      re.innerHTML=`<div class="placeholder">डाटा लोड गर्न सकिएन<br/><small style="color:var(--red)">${esc(e.message)}</small></div>`;
+    }finally{busy=false; br.disabled=false;}
+  }
+
+  function renderCards(data){
+    const list=data.candidates??[];
+    if(!list.length){re.innerHTML='<div class="placeholder">उम्मेदवार फेला परेन</div>';return;}
+    const maxV=Math.max(...list.map(c=>c.votes_int||pv(c.votes)),1);
+    const hasV=list.some(c=>(c.votes_int||pv(c.votes))>0);
+    let html=`<div class="year-badge">
+      <span class="year-tag">📋 प्रतिनिधि सभा निर्वाचन २०८२</span>
+      <span class="cand-count">${list.length} उम्मेदवार</span>
+    </div>`;
+    html+=list.map((c,i)=>{
+      const vint=c.votes_int||pv(c.votes);
+      const pct =maxV>1?Math.round(vint/maxV*100):0;
+      const win =c.winner?'win':'';
+      const rank=c.winner?'▲':String(i+1);
+      const photoEl=c.photo
+        ? `<img class="cp-img" src="${esc(c.photo)}" alt="${esc(c.candidate_name)}"
+                onerror="this.outerHTML='<div class=\\'cp-fb\\'>👤</div>'">`
+        : `<div class="cp-fb">👤</div>`;
+      const badge=c.party_logo
+        ? `<div class="party-badge"><img src="${esc(c.party_logo)}" alt="${esc(c.party)}"></div>`
+        : `<div class="party-badge"><span class="party-badge-txt">${esc((c.party||'?').slice(0,3))}</span></div>`;
+      const partyLine=c.party_logo
+        ? `<img class="ci-party-logo" src="${esc(c.party_logo)}" alt=""
+                onerror="this.style.display='none'">
+           <span class="ci-party-name">${esc(c.party)}</span>`
+        : `<span class="ci-party-name">${esc(c.party)}</span>`;
+      const votesEl=hasV
+        ? `<span class="cv-num">${esc(c.votes)}</span>
+           <span class="cv-lbl">मत प्राप्त</span>
+           ${c.winner?'<span class="cv-win">✓ विजयी</span>':''}`
+        : `<span class="cv-none">— मत</span>`;
+      return `<div class="ccard ${win}" style="animation-delay:${i*38}ms">
+        <div class="cr">${rank}</div>
+        <div class="cp-wrap">${photoEl}${badge}</div>
+        <div class="ci">
+          <span class="ci-name">${esc(c.candidate_name)}</span>
+          <div class="ci-party">${partyLine}</div>
+        </div>
+        <div class="cv">${votesEl}</div>
+        <div class="cb"><div class="cb-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join('');
+    re.innerHTML=html;
+  }
+
+  function resetCD(){
+    clearInterval(ctmr);
+    cv=AUTO; cdel.textContent=cv;
+    ctmr=setInterval(()=>{
+      cv--; cdel.textContent=Math.max(cv,0);
+      if(cv<=0){clearInterval(ctmr);if(sa.value)fetch2(sa.value);}
+    },1000);
+  }
+
+  br.onclick=()=>{if(sa.value)fetch2(sa.value);};
+  bc.onclick=async()=>{
+    bc.disabled=true;
+    try{await fetch(`${API}/cache/clear`,{method:'POST'});if(sa.value)fetch2(sa.value);}
+    catch(e){ss(`Cache clear failed: ${e.message}`,'error');}
+    finally{bc.disabled=false;}
+  };
+</script>
+
+<footer>
+  <span class="footer-by">Built by</span>
+  <span class="footer-name">Bishal Kafle</span>
+  <a class="footer-link" href="https://bishalkafle.info.np" target="_blank">bishalkafle.info.np</a>
+</footer>
+
+</body>
+</html>
