@@ -1,12 +1,13 @@
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
 from bs4 import BeautifulSoup
-import requests, re, time, logging, os, json, glob
+import asyncio, requests, re, time, logging, os, json
+try:
+    from pyppeteer import launch
+    PYPPETEER_AVAILABLE = True
+except ImportError:
+    PYPPETEER_AVAILABLE = False
+    logging.warning("Pyppeteer not available, will use requests-only mode")
 
 app = Flask(__name__, static_folder=".")
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -54,73 +55,45 @@ def is_fresh(e):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Selenium — auto-detects local vs Railway/Nixpacks environment
+# Pyppeteer — handles Chromium automatically on all platforms
 # ─────────────────────────────────────────────────────────────────────────────
 
-def make_driver():
-    opts = Options()
-    opts.add_argument("--headless=new")
-    opts.add_argument("--no-sandbox")
-    opts.add_argument("--disable-dev-shm-usage")
-    opts.add_argument("--disable-gpu")
-    opts.add_argument("--window-size=1280,900")
-    opts.add_argument(
-        "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-    )
-    opts.set_capability("goog:loggingPrefs", {"performance": "ALL"})
-
-    # Try common paths for chromium on Railway/Nix environments
-    chromium_candidates = [
-        "/run/current-system/sw/bin/chromium",
-        "/usr/bin/chromium",
-        "/usr/bin/chromium-browser",
-        "/snap/bin/chromium",
-    ]
-    
-    chromedriver_candidates = [
-        "/run/current-system/sw/bin/chromedriver",
-        "/usr/bin/chromedriver",
-    ]
-    
-    chromium_path = None
-    chromedriver_path = None
-    
-    # Find actual chromium
-    for path in chromium_candidates:
-        if os.path.exists(path):
-            chromium_path = path
-            break
-    
-    # Find actual chromedriver
-    for path in chromedriver_candidates:
-        if os.path.exists(path):
-            chromedriver_path = path
-            break
-
-    if chromium_path and chromedriver_path:
-        # Use system Chromium + ChromeDriver
-        opts.binary_location = chromium_path
-        logging.info(f"Using system Chromium: {chromium_path}")
-        logging.info(f"Using system ChromeDriver: {chromedriver_path}")
-        return webdriver.Chrome(service=Service(chromedriver_path), options=opts)
-    else:
-        # Fallback: use webdriver-manager with compatible version
-        logging.warning(f"System chromium not found, using webdriver-manager")
-        logging.info(f"  Checked chromium paths: {chromium_candidates}")
-        logging.info(f"  Checked chromedriver paths: {chromedriver_candidates}")
-        from webdriver_manager.chrome import ChromeDriverManager
-        
-        # Use a version known to work in Railway
-        try:
-            logging.info("Installing ChromeDriver v120 (compatible with Railway)")
-            driver_path = ChromeDriverManager(version="120.0.0").install()
-            return webdriver.Chrome(service=Service(driver_path), options=opts)
-        except Exception as e:
-            logging.error(f"webdriver-manager v120 failed: {e}")
-            # Last resort: try without specifying version
-            logging.info("Falling back to default ChromeDriver version")
-            return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=opts)
+async def get_page_content(url: str) -> tuple:
+    """Fetch page with Pyppeteer, return (html, body_text)"""
+    browser = None
+    try:
+        # Pyppeteer automatically downloads/bundles Chromium if needed
+        logging.info("Launching Pyppeteer browser...")
+        browser = await launch(
+            headless=True,
+            args=[
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+            ]
+        )
+        page = await browser.newPage()
+        await page.setUserAgent(
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+            'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+        )
+        await page.goto(url, {'waitUntil': 'networkidle2', 'timeout': 30000})
+        await page.waitForFunction(
+            "document.querySelectorAll('div.result-container').length > 0",
+            {'timeout': 30000}
+        )
+        await asyncio.sleep(2)  # Extra wait for JS to render
+        html = await page.content()
+        body_text = await page.evaluate('document.body.innerText')
+        await page.close()
+        return html, body_text
+    except Exception as e:
+        logging.error(f"Pyppeteer error: {e}")
+        raise
+    finally:
+        if browser:
+            await browser.close()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -325,22 +298,12 @@ def parse_results_from_html(html: str, container_index: int = 1) -> list:
 def scrape(slug: str) -> dict:
     url = f"{BASE}/constituency/{slug}"
     logging.info(f"Scraping: {url}")
-    driver = make_driver()
+    
+    # Run async Pyppeteer in sync context
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        driver.execute_cdp_cmd("Network.enable", {})
-        driver.get(url)
-        try:
-            WebDriverWait(driver, 30).until(
-                lambda d: bool(d.find_elements(
-                    By.CSS_SELECTOR,
-                    "div.result-container.col6, div.result-container"
-                ))
-            )
-        except Exception:
-            logging.warning("result-container wait timed out")
-        time.sleep(2)
-        html      = driver.page_source
-        body_text = driver.find_element(By.TAG_NAME, "body").text
+        html, body_text = loop.run_until_complete(get_page_content(url))
         logging.info(f"HTML {len(html):,} chars  Body {len(body_text):,} chars")
         total_voters = parse_total_voters(body_text, html)
         candidates = parse_results_from_html(html, container_index=0)
@@ -363,7 +326,7 @@ def scrape(slug: str) -> dict:
             "candidates":        candidates,
         }
     finally:
-        driver.quit()
+        loop.close()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -393,18 +356,11 @@ def get_results(slug: str):
 def debug_voters(slug: str):
     slug = slug.strip("/").lower()
     url  = f"{BASE}/constituency/{slug}"
-    driver = make_driver()
+    
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        driver.get(url)
-        try:
-            WebDriverWait(driver, 30).until(
-                lambda d: len(d.find_element(By.TAG_NAME, "body").text) > 300
-            )
-        except Exception:
-            pass
-        time.sleep(2)
-        html      = driver.page_source
-        body_text = driver.find_element(By.TAG_NAME, "body").text
+        html, body_text = loop.run_until_complete(get_page_content(url))
         soup = BeautifulSoup(html, "html.parser")
         keywords = ["जम्मा", "पुरुष", "महिला", "मतदाता", "voter"]
         body_lines = body_text.splitlines()
@@ -429,25 +385,17 @@ def debug_voters(slug: str):
             "matching_elements": matching_elements[:15],
         })
     finally:
-        driver.quit()
+        loop.close()
 
 @app.route("/debug/<path:slug>")
 def debug_html(slug: str):
     slug = slug.strip("/").lower()
     url  = f"{BASE}/constituency/{slug}"
-    driver = make_driver()
+    
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        driver.get(url)
-        try:
-            WebDriverWait(driver, 30).until(
-                lambda d: bool(d.find_elements(
-                    By.CSS_SELECTOR, "div.result-container.col6, div.result-container"
-                ))
-            )
-        except Exception:
-            pass
-        time.sleep(2)
-        html = driver.page_source
+        html, _ = loop.run_until_complete(get_page_content(url))
         soup = BeautifulSoup(html, "html.parser")
         containers = soup.find_all(
             "div", class_=lambda c: c and "result-container" in c and "col6" in c
@@ -475,7 +423,7 @@ def debug_html(slug: str):
             })
         return jsonify({"url": url, "container_count": len(containers), "containers": out})
     finally:
-        driver.quit()
+        loop.close()
 
 @app.route("/cache/clear", methods=["POST"])
 def clear_cache():
