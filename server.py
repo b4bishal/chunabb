@@ -6,7 +6,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from bs4 import BeautifulSoup
-import requests, re, time, logging, os, json, zipfile, urllib.request
+import requests, re, time, logging, os, json, zipfile, shutil
 
 app = Flask(__name__, static_folder=".")
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -58,45 +58,64 @@ def is_fresh(e):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def download_chromedriver(version="120.0.6099.129"):
-    """Download ChromeDriver directly without Chrome detection."""
+    """Download ChromeDriver directly from chrome-for-testing."""
     cache_dir = os.path.expanduser("~/.chromedriver_cache")
     os.makedirs(cache_dir, exist_ok=True)
     
     driver_path = os.path.join(cache_dir, f"chromedriver-{version}")
     
     # Return if already cached
-    if os.path.exists(driver_path) and os.path.getsize(driver_path) > 1000000:
+    if os.path.exists(driver_path) and os.path.getsize(driver_path) > 5000000:
         logging.info(f"Using cached ChromeDriver: {driver_path}")
         os.chmod(driver_path, 0o755)
         return driver_path
     
-    # Try downloading ChromeDriver from chromedriver.storage.googleapis.com
-    # This is the official ChromeDriver repository
-    url = f"https://chromedriver.storage.googleapis.com/{version}/chromedriver_linux64.zip"
+    # Use chrome-for-testing (official repository)
+    url = f"https://googlechromelabs.github.io/chrome-for-testing/download/Linux_x64/{version}/chrome-linux64.zip"
     logging.info(f"Downloading ChromeDriver {version}...")
+    logging.info(f"Downloading from: {url}")
     
     try:
         zip_path = os.path.join(cache_dir, f"chromedriver-{version}.zip")
-        logging.info(f"Downloading from: {url}")
-        urllib.request.urlretrieve(url, zip_path)
+        
+        # Use requests for better error handling
+        response = requests.get(url, timeout=60)
+        response.raise_for_status()
+        
+        with open(zip_path, 'wb') as f:
+            f.write(response.content)
+        
         logging.info("Download complete, extracting...")
         
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(cache_dir)
         
-        # Find the extracted chromedriver
-        extracted_path = os.path.join(cache_dir, "chromedriver")
+        # Find the extracted chromedriver in the chrome-linux64 subfolder
+        extracted_path = os.path.join(cache_dir, "chrome-linux64", "chromedriver")
+        
+        if not os.path.exists(extracted_path):
+            # Try alternate path
+            extracted_path = os.path.join(cache_dir, "chrome-linux64", "chrome")
         
         if os.path.exists(extracted_path):
             # Make it executable
             os.chmod(extracted_path, 0o755)
             
-            # Rename/cache it with version
-            os.rename(extracted_path, driver_path)
+            # Copy to cache location
+            shutil.copy2(extracted_path, driver_path)
+            os.chmod(driver_path, 0o755)
             logging.info(f"✓ ChromeDriver {version} cached at: {driver_path}")
+            
+            # Cleanup
+            try:
+                os.remove(zip_path)
+                shutil.rmtree(os.path.join(cache_dir, "chrome-linux64"))
+            except:
+                pass
+            
             return driver_path
         else:
-            raise Exception(f"ChromeDriver not found in extracted zip")
+            raise Exception(f"ChromeDriver not found in extracted zip at {extracted_path}")
             
     except Exception as e:
         logging.error(f"Failed to download ChromeDriver: {e}")
