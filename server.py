@@ -58,16 +58,30 @@ def is_fresh(e):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _find_binary(*candidates):
-    """Return the first existing binary path, or None."""
+    """Return the first existing binary path, or None.
+    Checks absolute paths first, then falls back to PATH (shutil.which).
+    """
+    # 1. Check absolute paths directly
     for c in candidates:
         if c and os.path.isfile(c):
+            logging.info(f"  Found binary (abs): {c}")
             return c
-    # Also try PATH lookup
-    for name in candidates:
-        if name and not name.startswith("/"):
-            found = shutil.which(name)
-            if found:
-                return found
+
+    # 2. Try PATH lookup on the basename of every candidate
+    #    e.g. "/run/current-system/sw/bin/chromium" → which("chromium")
+    seen = set()
+    for c in candidates:
+        if not c:
+            continue
+        name = os.path.basename(c)
+        if name in seen:
+            continue
+        seen.add(name)
+        found = shutil.which(name)
+        if found:
+            logging.info(f"  Found binary (PATH): {found}  (looked up '{name}')")
+            return found
+
     return None
 
 
@@ -161,17 +175,33 @@ def make_driver():
             driver_path = _download_chromedriver_manual(version)
             return webdriver.Chrome(service=Service(driver_path), options=opts)
 
-    # ── 3. Fallback: let webdriver-manager handle everything (local dev) ─────
-    logging.info("No system Chromium found — using ChromeDriverManager (local dev)")
+    # ── 3. Log PATH contents to help diagnose missing binaries ─────────────
+    try:
+        scan = subprocess.check_output(
+            r"find /run /nix /usr/bin /usr/local/bin /snap/bin "
+            r"-maxdepth 6 \( -name 'chrom*' -o -name 'google-chrome*' \) 2>/dev/null | head -20",
+            shell=True, timeout=10
+        ).decode().strip()
+        logging.warning(f"No Chromium found. Filesystem scan:\n{scan or '(nothing found)'}")
+    except Exception:
+        pass
+
+    # ── 4. Try webdriver-manager (works on local dev if installed) ──────────
     try:
         from webdriver_manager.chrome import ChromeDriverManager
+        logging.info("Falling back to ChromeDriverManager…")
         driver_path = ChromeDriverManager().install()
         return webdriver.Chrome(service=Service(driver_path), options=opts)
     except Exception as e:
-        logging.error(f"ChromeDriverManager failed: {e}")
-        raise RuntimeError(
-            "Could not start Chrome. Ensure chromium + chromedriver are installed."
-        ) from e
+        logging.warning(f"ChromeDriverManager unavailable: {e}")
+
+    # ── 5. Last resort: download chrome-for-testing directly ──────────────
+    logging.info("Attempting manual chrome-for-testing download…")
+    driver_path = _download_chromedriver_manual(None)
+    chrome_path = _download_chrome_headless(None)
+    if chrome_path:
+        opts.binary_location = chrome_path
+    return webdriver.Chrome(service=Service(driver_path), options=opts)
 
 
 def _download_chromedriver_manual(version: str | None) -> str:
@@ -207,7 +237,47 @@ def _download_chromedriver_manual(version: str | None) -> str:
                 logging.info(f"ChromeDriver extracted to {dest}")
                 return dest
 
+
     raise RuntimeError(f"chromedriver binary not found in zip from {url}")
+
+
+def _download_chrome_headless(version: str | None) -> str | None:
+    """Download chrome-headless-shell from storage.googleapis.com."""
+    import zipfile, io
+
+    dest = "/tmp/chrome-headless-shell"
+    if os.path.isfile(dest):
+        return dest
+
+    try:
+        if not version:
+            r = requests.get(
+                "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json",
+                timeout=15,
+            )
+            r.raise_for_status()
+            version = r.json()["channels"]["Stable"]["version"]
+
+        url = (
+            f"https://storage.googleapis.com/chrome-for-testing-public"
+            f"/{version}/linux64/chrome-headless-shell-linux64.zip"
+        )
+        logging.info(f"Downloading chrome-headless-shell from: {url}")
+        r = requests.get(url, timeout=120)
+        r.raise_for_status()
+
+        with zipfile.ZipFile(io.BytesIO(r.content)) as z:
+            for name in z.namelist():
+                if name.endswith("chrome-headless-shell") and "__MACOSX" not in name:
+                    data = z.read(name)
+                    with open(dest, "wb") as f:
+                        f.write(data)
+                    os.chmod(dest, 0o755)
+                    logging.info(f"chrome-headless-shell extracted to {dest}")
+                    return dest
+    except Exception as e:
+        logging.warning(f"Could not download chrome-headless-shell: {e}")
+    return None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
