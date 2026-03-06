@@ -58,17 +58,10 @@ def is_fresh(e):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _find_binary(*candidates):
-    """Return the first existing binary path, or None.
-    Checks absolute paths first, then falls back to PATH (shutil.which).
-    """
-    # 1. Check absolute paths directly
     for c in candidates:
         if c and os.path.isfile(c):
             logging.info(f"  Found binary (abs): {c}")
             return c
-
-    # 2. Try PATH lookup on the basename of every candidate
-    #    e.g. "/run/current-system/sw/bin/chromium" → which("chromium")
     seen = set()
     for c in candidates:
         if not c:
@@ -81,17 +74,14 @@ def _find_binary(*candidates):
         if found:
             logging.info(f"  Found binary (PATH): {found}  (looked up '{name}')")
             return found
-
     return None
 
 
 def _chrome_version(binary: str) -> str | None:
-    """Extract major.minor.build.patch version string from a Chrome/Chromium binary."""
     try:
         out = subprocess.check_output(
             [binary, "--version"], stderr=subprocess.DEVNULL, timeout=10
         ).decode().strip()
-        # e.g. "Chromium 124.0.6367.82" or "Google Chrome 124.0.6367.82"
         m = re.search(r"[\d]+\.[\d]+\.[\d]+\.[\d]+", out)
         if m:
             return m.group(0)
@@ -104,7 +94,6 @@ def _chrome_version(binary: str) -> str | None:
 
 
 def _arch_platform() -> str:
-    """Return the chrome-for-testing platform string for this machine."""
     import platform
     machine = platform.machine().lower()
     if machine in ("aarch64", "arm64"):
@@ -113,7 +102,6 @@ def _arch_platform() -> str:
 
 
 def _chromedriver_url(version: str) -> str:
-    """Return the correct storage.googleapis.com download URL for chromedriver."""
     plat = _arch_platform()
     return (
         f"https://storage.googleapis.com/chrome-for-testing-public"
@@ -136,20 +124,18 @@ def make_driver():
     )
     opts.set_capability("goog:loggingPrefs", {"performance": "ALL"})
 
-    # ── 1. Find Chromium binary ───────────────────────────────────────────────
     chromium = _find_binary(
-        "/usr/bin/chromium",           # Debian apt: chromium
-        "/usr/bin/chromium-browser",   # Ubuntu apt: chromium-browser
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
         "/usr/bin/google-chrome",
         "/usr/bin/google-chrome-stable",
         "/run/current-system/sw/bin/chromium",
         "/snap/bin/chromium",
     )
 
-    # ── 2. Find ChromeDriver binary ───────────────────────────────────────────
     chromedriver = _find_binary(
-        "/usr/bin/chromedriver",            # Debian apt: chromium-driver
-        "/usr/lib/chromium-browser/chromedriver",  # Ubuntu apt: chromium-driver
+        "/usr/bin/chromedriver",
+        "/usr/lib/chromium-browser/chromedriver",
         "/usr/local/bin/chromedriver",
         "/run/current-system/sw/bin/chromedriver",
     )
@@ -164,7 +150,6 @@ def make_driver():
         logging.info(f"ChromeDriver binary: {chromedriver}")
         return webdriver.Chrome(service=Service(chromedriver), options=opts)
 
-    # ── 3. Local dev fallback: webdriver-manager ──────────────────────────────
     logging.warning("No system chromedriver found — trying webdriver-manager (local dev only)")
     try:
         from webdriver_manager.chrome import ChromeDriverManager
@@ -180,14 +165,8 @@ def make_driver():
 
 
 def _download_chromedriver_manual(version: str | None) -> str:
-    """
-    Last-resort: download chromedriver from storage.googleapis.com
-    using the correct URL format (not the old googlechromelabs path).
-    """
     import zipfile, io
-
     if not version:
-        # Fetch latest stable version
         r = requests.get(
             "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json",
             timeout=15,
@@ -195,12 +174,10 @@ def _download_chromedriver_manual(version: str | None) -> str:
         r.raise_for_status()
         version = r.json()["channels"]["Stable"]["version"]
         logging.info(f"Latest stable ChromeDriver version: {version}")
-
     url = _chromedriver_url(version)
     logging.info(f"Downloading ChromeDriver from: {url}")
     r = requests.get(url, timeout=60)
     r.raise_for_status()
-
     dest = "/tmp/chromedriver"
     with zipfile.ZipFile(io.BytesIO(r.content)) as z:
         for name in z.namelist():
@@ -211,19 +188,14 @@ def _download_chromedriver_manual(version: str | None) -> str:
                 os.chmod(dest, 0o755)
                 logging.info(f"ChromeDriver extracted to {dest}")
                 return dest
-
-
     raise RuntimeError(f"chromedriver binary not found in zip from {url}")
 
 
 def _download_chrome_headless(version: str | None) -> str | None:
-    """Download chrome-headless-shell from storage.googleapis.com."""
     import zipfile, io
-
     dest = "/tmp/chrome-headless-shell"
     if os.path.isfile(dest):
         return dest
-
     try:
         if not version:
             r = requests.get(
@@ -232,7 +204,6 @@ def _download_chrome_headless(version: str | None) -> str | None:
             )
             r.raise_for_status()
             version = r.json()["channels"]["Stable"]["version"]
-
         plat = _arch_platform()
         url = (
             f"https://storage.googleapis.com/chrome-for-testing-public"
@@ -241,7 +212,6 @@ def _download_chrome_headless(version: str | None) -> str | None:
         logging.info(f"Downloading chrome-headless-shell from: {url}")
         r = requests.get(url, timeout=120)
         r.raise_for_status()
-
         with zipfile.ZipFile(io.BytesIO(r.content)) as z:
             for name in z.namelist():
                 if name.endswith("chrome-headless-shell") and "__MACOSX" not in name:
@@ -291,6 +261,159 @@ def parse_total_voters(body: str, html: str) -> int:
                 parent = parent.parent
     logging.info("Total voters: not found")
     return 0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PARTY SEATS SCRAPER  (homepage section.section-lead-table)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def parse_party_seats(html: str) -> dict:
+    """
+    Parse the section.section-lead-table block from the homepage HTML.
+    Handles table rows OR list-card layouts.
+    Returns {"parties": [...], "majority": 138, "total_seats": 165, "scraped_at": ...}
+    """
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Primary selector: section or div with both 'section' and 'lead-table' in class list
+    section = soup.find(
+        lambda tag: tag.name in ("section", "div", "article") and
+        isinstance(tag.get("class"), list) and
+        any("lead-table" in c for c in tag["class"])
+    )
+
+    if not section:
+        # Fallback: any element whose class string contains lead-table
+        section = soup.find(class_=re.compile(r"lead[-_]?table", re.I))
+
+    if not section:
+        logging.warning("lead-table section NOT found — scanning full page for party rows")
+        section = soup  # last resort
+
+    parties = []
+
+    # ── Strategy 1: <tr> rows ─────────────────────────────────────────────
+    rows = section.find_all("tr")
+    if rows:
+        logging.info(f"  lead-table: found {len(rows)} <tr> rows")
+        for row in rows:
+            cells = row.find_all(["td", "th"])
+            if len(cells) < 2:
+                continue
+            raw_name = cells[0].get_text(separator=" ", strip=True)
+            # skip header rows
+            if not raw_name or raw_name.lower() in ["party", "दल", "पार्टी", "#", "rank", "name"]:
+                continue
+
+            logo = None
+            img = cells[0].find("img", src=True)
+            if img:
+                logo = abs_url(img["src"])
+
+            # Collect all numbers from remaining cells
+            nums = []
+            num_labels = []
+            for cell in cells[1:]:
+                txt = cell.get_text(strip=True)
+                nums.append(nepali_to_int(txt) if txt else 0)
+                lbl_el = cell.find(class_=True)
+                num_labels.append(lbl_el.get_text(strip=True) if lbl_el else txt)
+
+            # Attempt to find colour/party colour from inline style or class
+            color = None
+            style = cells[0].get("style", "")
+            cm = re.search(r'(?:background|color)\s*:\s*(#[0-9a-fA-F]{3,6}|rgba?\([^)]+\))', style)
+            if cm:
+                color = cm.group(1)
+
+            # Determine won / leading / total from column count
+            won = nums[0] if len(nums) > 0 else 0
+            leading = nums[1] if len(nums) > 1 else 0
+            total = nums[2] if len(nums) > 2 else won + leading
+
+            parties.append({
+                "party": raw_name,
+                "short": raw_name[:6],
+                "logo": logo,
+                "color": color,
+                "won": won,
+                "leading": leading,
+                "total": total,
+            })
+
+    # ── Strategy 2: card / list items (div-based layout) ──────────────────
+    if not parties:
+        # Look for repeated card elements inside section
+        cards = section.find_all(
+            lambda tag: tag.name in ("div", "li", "article") and
+            isinstance(tag.get("class"), list) and
+            any(kw in " ".join(tag["class"]).lower() for kw in ["party", "item", "row", "card", "result"])
+        )
+        logging.info(f"  lead-table fallback: found {len(cards)} card elements")
+        for card in cards:
+            name_el = card.find(class_=re.compile(r"name|title|party", re.I))
+            if not name_el:
+                continue
+            raw_name = name_el.get_text(strip=True)
+            if not raw_name:
+                continue
+
+            logo = None
+            img = card.find("img", src=True)
+            if img:
+                logo = abs_url(img["src"])
+
+            nums = [nepali_to_int(el.get_text(strip=True))
+                    for el in card.find_all(class_=re.compile(r"count|num|seat|vote|win|lead", re.I))]
+
+            won     = nums[0] if len(nums) > 0 else 0
+            leading = nums[1] if len(nums) > 1 else 0
+            total   = nums[2] if len(nums) > 2 else won + leading
+
+            parties.append({
+                "party": raw_name,
+                "short": raw_name[:6],
+                "logo": logo,
+                "color": None,
+                "won": won,
+                "leading": leading,
+                "total": total,
+            })
+
+    # Sort by total desc
+    parties.sort(key=lambda p: p["total"], reverse=True)
+    logging.info(f"parse_party_seats → {len(parties)} parties")
+    return {
+        "scraped_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "parties": parties,
+        "majority": 138,
+        "total_seats": 165,
+    }
+
+
+def scrape_party_seats() -> dict:
+    """Scrape the ratopati election homepage and extract party seat counts."""
+    url = BASE
+    logging.info(f"Scraping party seats from: {url}")
+    driver = make_driver()
+    try:
+        driver.get(url)
+        # Wait for the lead-table section to appear
+        try:
+            WebDriverWait(driver, 30).until(
+                lambda d: bool(d.find_elements(
+                    By.CSS_SELECTOR,
+                    ".section-lead-table, .lead-table, section table, .party-result"
+                ))
+            )
+        except Exception:
+            logging.warning("party seats section wait timed out — proceeding anyway")
+        time.sleep(3)  # extra settle for JS renders
+        html = driver.page_source
+        logging.info(f"Party seats HTML: {len(html):,} chars")
+        return parse_party_seats(html)
+    finally:
+        driver.quit()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -452,7 +575,7 @@ def parse_results_from_html(html: str, container_index: int = 1) -> list:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Main scrape
+# Main scrape (constituency)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def scrape(slug: str) -> dict:
@@ -507,6 +630,28 @@ def scrape(slug: str) -> dict:
 def index():
     """Serve the frontend."""
     return send_from_directory(".", "index.html")
+
+
+@app.route("/party-seats")
+def party_seats():
+    """
+    Return party-wise seat counts scraped from the homepage
+    section.section-lead-table. Cached for CACHE_TTL seconds.
+    """
+    entry = results_cache.get("__party_seats__", {})
+    if is_fresh(entry):
+        return jsonify(entry["data"])
+    try:
+        data = scrape_party_seats()
+        results_cache["__party_seats__"] = {
+            "data": data,
+            "expires_at": time.time() + CACHE_TTL,
+        }
+        return jsonify(data)
+    except Exception as e:
+        logging.error(f"Failed party-seats: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/results/<path:slug>")
 def get_results(slug: str):
@@ -610,6 +755,44 @@ def debug_html(slug: str):
     finally:
         driver.quit()
 
+@app.route("/debug-lead-table")
+def debug_lead_table():
+    """Debug endpoint: shows the raw HTML of the section-lead-table block."""
+    driver = make_driver()
+    try:
+        driver.get(BASE)
+        try:
+            WebDriverWait(driver, 30).until(
+                lambda d: bool(d.find_elements(
+                    By.CSS_SELECTOR,
+                    ".section-lead-table, .lead-table, section table"
+                ))
+            )
+        except Exception:
+            pass
+        time.sleep(3)
+        html = driver.page_source
+        soup = BeautifulSoup(html, "html.parser")
+        section = soup.find(
+            lambda tag: tag.name in ("section", "div", "article") and
+            isinstance(tag.get("class"), list) and
+            any("lead-table" in c for c in tag["class"])
+        )
+        if not section:
+            section = soup.find(class_=re.compile(r"lead[-_]?table", re.I))
+        return jsonify({
+            "found": section is not None,
+            "section_html": str(section)[:5000] if section else None,
+            "section_text": section.get_text(separator="|", strip=True)[:2000] if section else None,
+            "all_classes_on_page": list({
+                c for tag in soup.find_all(True) if tag.get("class")
+                for c in tag["class"]
+                if "table" in c or "lead" in c or "party" in c or "seat" in c
+            }),
+        })
+    finally:
+        driver.quit()
+
 @app.route("/cache/clear", methods=["POST"])
 def clear_cache():
     results_cache.clear()
@@ -617,7 +800,6 @@ def clear_cache():
 
 @app.route("/health")
 def health():
-    # Report what binaries were found
     chromium = (
         _find_binary(
             "/run/current-system/sw/bin/chromium",
@@ -641,9 +823,11 @@ def health():
         "chromedriver": chromedriver,
         "chrome_version": _chrome_version(chromium) if chromium != "not found" else None,
         "endpoints": {
+            "GET /party-seats":    "Party seat counts from homepage section-lead-table",
             "GET /results/<slug>": "e.g. /results/jhapa-5 — returns 2082 results",
             "POST /cache/clear":   "Flush cache",
             "GET /health":         "Binary paths + version info",
+            "GET /debug-lead-table": "Raw HTML dump of the lead-table section",
         },
     })
 
