@@ -623,6 +623,241 @@ def scrape(slug: str) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# HOT-SEATS / TRENDING CANDIDATES
+# ─────────────────────────────────────────────────────────────────────────────
+
+_HOT_JS = r"""
+(function(){
+  var NP={'०':'0','१':'1','२':'2','३':'3','४':'4','५':'5','६':'6','७':'7','८':'8','९':'9'};
+  function toInt(s){return parseInt((s||'').split('').map(function(c){return NP[c]||c;}).join('').replace(/[^0-9]/g,'') || '0',10)||0;}
+
+  // Collect every card-like element: has a candidate photo AND a name AND a number
+  var allEls = Array.from(document.querySelectorAll('*'));
+  var seen = new Set();
+  var cards = [];
+
+  for(var i=0;i<allEls.length;i++){
+    var el = allEls[i];
+    if(seen.has(el)) continue;
+    // Must contain an img
+    var imgs = el.querySelectorAll('img');
+    if(imgs.length < 1) continue;
+    var txt = (el.innerText||'').trim();
+    // Must have at least one number
+    if(!/[0-9०-९]/.test(txt)) continue;
+    // Skip if it's a massive wrapper
+    if(el.querySelectorAll('img').length > 4) continue;
+    if(txt.length > 500) continue;
+    cards.push(el);
+    el.querySelectorAll('*').forEach(function(c){seen.add(c);});
+    seen.add(el);
+  }
+
+  var candidates = [];
+  cards.forEach(function(card){
+    var imgs = Array.from(card.querySelectorAll('img[src]'));
+    var candidateImg = null;
+    var partyImg = null;
+
+    // Heuristic: larger/first img = candidate photo, img inside a small element = party logo
+    imgs.forEach(function(img){
+      var src = img.src||'';
+      // skip data URIs
+      if(src.indexOf('data:')===0) return;
+      var cls = (img.className||'') + ' ' + (img.closest('a')?img.closest('a').className:'');
+      if(/party|logo|symbol|flag/i.test(src+cls)){
+        if(!partyImg) partyImg=img;
+      } else {
+        if(!candidateImg) candidateImg=img;
+      }
+    });
+    // fallback: first img = candidate
+    if(!candidateImg && imgs.length>0) candidateImg=imgs[0];
+    if(!candidateImg) return;
+
+    var photo = candidateImg.src;
+
+    // Party logo: second img, or img inside element with party-related class/href
+    if(!partyImg && imgs.length>1) partyImg=imgs[1];
+    var partyLogo = partyImg ? partyImg.src : '';
+    if(partyLogo===photo) partyLogo='';
+
+    // Candidate name: look for named element, else non-numeric text tokens
+    var nameEl = card.querySelector('[class*="name"],[class*="title"],[class*="cand"],[class*="person"],[class*="candidate"]');
+    var name = nameEl ? (nameEl.innerText||'').trim() : '';
+    if(!name || /^[0-9\s,]+$/.test(name)){
+      var walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+      var parts=[];
+      while(walker.nextNode()){
+        var t=(walker.currentNode.textContent||'').trim();
+        var ascii=t.split('').map(function(c){return NP[c]||c;}).join('');
+        if(!ascii || /^[0-9,\s%]+$/.test(ascii) || ascii.length<2) continue;
+        parts.push(t);
+      }
+      name=parts.join(' ').trim();
+    }
+    if(!name) return;
+
+    // Party name
+    var partyEl = card.querySelector('[class*="party"],[class*="dol"],[class*="group"]');
+    var party = partyEl ? (partyEl.innerText||'').trim() : '';
+    // Remove name from party if duplicated
+    if(party===name) party='';
+
+    // Constituency / area
+    var areaEl = card.querySelector('[class*="area"],[class*="const"],[class*="region"],[class*="district"],[class*="seat"]');
+    var area = areaEl ? (areaEl.innerText||'').trim() : '';
+
+    // Votes / count
+    var walker2 = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+    var nums=[];
+    while(walker2.nextNode()){
+      var t2=(walker2.currentNode.textContent||'').trim();
+      if(/^[0-9,०-९]+$/.test(t2) && t2.replace(/,/g,'').length>=1)
+        nums.push(toInt(t2));
+    }
+    var votes = nums.length>0 ? Math.max.apply(null,nums) : 0;
+
+    // Link to candidate page
+    var link = '';
+    var anchor = card.closest('a[href]') || card.querySelector('a[href*="candidate"],a[href*="person"]');
+    if(anchor) link = anchor.href;
+
+    // Status: won / leading
+    var status = '';
+    var statusEl = card.querySelector('[class*="win"],[class*="lead"],[class*="vijay"],[class*="status"],[class*="badge"]');
+    if(statusEl) status = (statusEl.innerText||'').trim();
+
+    candidates.push({
+      name: name.substring(0,80),
+      photo: photo,
+      party: party.substring(0,60),
+      party_logo: partyLogo,
+      area: area.substring(0,80),
+      votes: votes,
+      status: status.substring(0,30),
+      link: link,
+    });
+  });
+
+  return {
+    url: window.location.href,
+    count: candidates.length,
+    candidates: candidates,
+  };
+})();
+"""
+
+
+def scrape_hot_seats() -> dict:
+    """Scrape election.ratopati.com/hot-seats for trending candidates."""
+    url = f"{BASE}/hot-seats"
+    logging.info(f"scrape_hot_seats → {url}")
+    driver = make_driver()
+    try:
+        driver.get(url)
+        try:
+            WebDriverWait(driver, 30).until(
+                lambda d: len(d.find_element(By.TAG_NAME, "body").text) > 300
+            )
+        except Exception:
+            logging.warning("hot-seats body wait timed out")
+        time.sleep(4)  # let JS render cards
+
+        html = driver.page_source
+        logging.info(f"  hot-seats HTML length: {len(html):,}")
+
+        candidates = []
+        # Try JS extractor
+        try:
+            result = driver.execute_script(_HOT_JS)
+            if result and isinstance(result, dict):
+                candidates = result.get("candidates") or []
+                logging.info(f"  JS extractor: {len(candidates)} candidates")
+            else:
+                logging.warning(f"  JS returned: {repr(result)}")
+        except Exception as e:
+            logging.warning(f"  JS error: {e}")
+
+        # BS4 fallback
+        if not candidates:
+            logging.info("  Falling back to BS4 for hot-seats")
+            candidates = _bs_parse_hot_seats(html)
+
+        logging.info(f"  Final hot-seats count: {len(candidates)}")
+        return {
+            "scraped_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "source_url": url,
+            "candidates": candidates,
+        }
+    finally:
+        driver.quit()
+
+
+def _bs_parse_hot_seats(html: str) -> list:
+    soup = BeautifulSoup(html, "html.parser")
+    candidates = []
+    seen_ids = set()
+
+    for el in soup.find_all(True):
+        eid = id(el)
+        if eid in seen_ids:
+            continue
+        imgs = el.find_all("img", src=True)
+        if len(imgs) < 1:
+            continue
+        txt = el.get_text()
+        if not re.search(r'[0-9०-९]', txt):
+            continue
+        if len(el.find_all(True)) > 25:
+            continue
+        if len(txt) > 400:
+            continue
+
+        # deduplicate children
+        for desc in el.find_all(True):
+            seen_ids.add(id(desc))
+        seen_ids.add(eid)
+
+        img = imgs[0]
+        photo = abs_url(img.get("src", ""))
+        if not photo:
+            continue
+
+        raw_text = el.get_text(separator=" ", strip=True)
+        name_tokens = []
+        for tok in raw_text.split():
+            c = ''.join(NP_DIGITS.get(ch, ch) for ch in tok)
+            c = re.sub(r'[^\d]', '', c)
+            if not c:
+                name_tokens.append(tok)
+        name = " ".join(name_tokens).strip()
+        if not name or len(name) < 2:
+            continue
+
+        nums = [nepali_to_int(m) for m in re.findall(r'[0-9,०-९]+', raw_text)]
+        votes = max(nums) if nums else 0
+
+        # try to get party logo from second img
+        party_logo = abs_url(imgs[1].get("src", "")) if len(imgs) > 1 else None
+        if party_logo == photo:
+            party_logo = None
+
+        candidates.append({
+            "name": name[:80],
+            "photo": photo,
+            "party": "",
+            "party_logo": party_logo,
+            "area": "",
+            "votes": votes,
+            "status": "",
+            "link": "",
+        })
+
+    return candidates
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Routes
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -643,6 +878,20 @@ def party_seats():
         logging.error(f"party-seats failed: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
+
+
+@app.route("/hot-seats")
+def hot_seats():
+    entry = results_cache.get("__hot_seats__", {})
+    if is_fresh(entry):
+        return jsonify(entry["data"])
+    try:
+        data = scrape_hot_seats()
+        results_cache["__hot_seats__"] = {"data": data, "expires_at": time.time() + CACHE_TTL}
+        return jsonify(data)
+    except Exception as e:
+        logging.error(f"hot-seats failed: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/debug-lead-table")
 def debug_lead_table():
