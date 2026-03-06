@@ -298,38 +298,164 @@ def scrape_party_seats() -> dict:
     try:
         driver.get(BASE)
 
-        # Wait for the lead-table section
+        # Wait for body to have meaningful content — don't require the exact section
         try:
             WebDriverWait(driver, 30).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR,
-                    ".section-lead-table, [class*='lead-table'], [class*='leadTable']"
-                ))
+                lambda d: len(d.find_element(By.TAG_NAME, "body").text) > 500
             )
         except Exception:
-            logging.warning("lead-table section not found via CSS wait — sleeping 5s")
-            time.sleep(5)
+            logging.warning("body-text wait timed out")
 
-        time.sleep(2)  # allow JS to finish rendering
+        # Extra wait for JS-rendered content
+        time.sleep(4)
 
-        result = driver.execute_script(_EXTRACT_JS)
-        logging.info(f"  JS result: found={result.get('found')}, rows={result.get('row_count')}, "
-                     f"parties={len(result.get('parties',[]))}, class={result.get('section_class','?')[:80]}")
+        html = driver.page_source
+        logging.info(f"  Homepage HTML length: {len(html):,} chars")
 
-        parties = result.get("parties", [])
+        # ── Try JS extractor first ─────────────────────────────────────
+        parties = []
+        try:
+            result = driver.execute_script(_EXTRACT_JS)
+            if result and isinstance(result, dict):
+                logging.info(
+                    f"  JS result: found={result.get('found')}, "
+                    f"rows={result.get('row_count')}, "
+                    f"parties={len(result.get('parties', []))}, "
+                    f"class={str(result.get('section_class','?'))[:80]}"
+                )
+                parties = result.get("parties") or []
+            else:
+                logging.warning(f"  execute_script returned: {repr(result)}")
+        except Exception as js_err:
+            logging.warning(f"  JS extractor threw: {js_err}")
 
+        # ── BeautifulSoup fallback ─────────────────────────────────────
         if not parties:
-            logging.warning("JS extractor returned 0 parties")
+            logging.info("  Falling back to BeautifulSoup parser")
+            parties = _bs_parse_party_seats(html)
+
+        logging.info(f"  Final party count: {len(parties)}")
 
         return {
-            "scraped_at":    time.strftime("%Y-%m-%d %H:%M:%S"),
-            "majority":      138,
-            "total_seats":   165,
-            "section_class": result.get("section_class", ""),
-            "header_labels": result.get("header_labels", []),
-            "parties":       parties,
+            "scraped_at":  time.strftime("%Y-%m-%d %H:%M:%S"),
+            "majority":    138,
+            "total_seats": 165,
+            "parties":     parties,
         }
     finally:
         driver.quit()
+
+
+def _bs_parse_party_seats(html: str) -> list:
+    """
+    BeautifulSoup fallback.  Scans every element that contains an <img> and
+    at least one number, groups them into party rows, and extracts
+    name / logo / won / leading.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+
+    # ── 1. Try to find the lead-table section ─────────────────────────
+    section = None
+    for tag in soup.find_all(True):
+        cls = " ".join(tag.get("class") or [])
+        if any(kw in cls for kw in ("lead-table", "leadTable", "section-lead", "party-result", "seat-count")):
+            section = tag
+            logging.info(f"  BS: found section by class → {cls[:80]}")
+            break
+
+    # fallback: search for a <table> that has party logo images
+    if not section:
+        for tbl in soup.find_all("table"):
+            if len(tbl.find_all("img")) >= 3:
+                section = tbl
+                logging.info("  BS: using table with 3+ imgs as section")
+                break
+
+    # last resort: scan the whole page
+    if not section:
+        section = soup
+        logging.warning("  BS: scanning full page")
+
+    # ── 2. Collect candidate row elements ─────────────────────────────
+    # Find the smallest elements that each have exactly one img and some numbers
+    seen_ids = set()
+    rows = []
+
+    for el in section.find_all(True):
+        eid = id(el)
+        if eid in seen_ids:
+            continue
+        imgs = el.find_all("img", src=True)
+        if len(imgs) != 1:
+            continue
+        txt = el.get_text()
+        if not re.search(r'[0-9०-९]', txt):
+            continue
+        # Skip wrappers that contain other candidate rows
+        inner_imgs = sum(1 for c in el.find_all(True) if c.find_all("img", src=True))
+        if inner_imgs > 1:
+            continue
+        rows.append(el)
+        for desc in el.find_all(True):
+            seen_ids.add(id(desc))
+        seen_ids.add(eid)
+
+    logging.info(f"  BS: candidate rows found = {len(rows)}")
+
+    if not rows:
+        return []
+
+    # ── 3. Extract from each row ───────────────────────────────────────
+    parties = []
+    for row in rows:
+        img = row.find("img", src=True)
+        if not img:
+            continue
+        logo = abs_url(img.get("src", ""))
+        if not logo:
+            continue
+
+        # Party name: all non-numeric text in the row
+        raw_text = row.get_text(separator=" ", strip=True)
+        name_tokens = []
+        for tok in raw_text.split():
+            clean = ''.join(NP_DIGITS.get(c, c) for c in tok)
+            clean = re.sub(r'[^\d]', '', clean)
+            if not clean:          # not a number token
+                name_tokens.append(tok)
+        name = " ".join(name_tokens).strip()
+        # Remove noise
+        name = re.sub(r'\s+', ' ', name).strip()
+        if not name or len(name) < 2:
+            continue
+
+        # All numbers in DOM order
+        nums = [nepali_to_int(m) for m in re.findall(r'[0-9,०-९]+', raw_text)]
+        nums = [n for n in nums if n >= 0]  # keep zeros too
+
+        won     = nums[0] if len(nums) > 0 else 0
+        leading = nums[1] if len(nums) > 1 else 0
+
+        # Try to detect won/leading from child element classes
+        for child in row.find_all(True):
+            ccls = " ".join(child.get("class") or []).lower()
+            ctxt = child.get_text(strip=True)
+            cval = nepali_to_int(ctxt) if ctxt else 0
+            if any(k in ccls for k in ("won", "vijay", "win")) and "window" not in ccls:
+                won = cval
+            elif any(k in ccls for k in ("lead", "ahead", "aagrani")):
+                leading = cval
+
+        parties.append({
+            "name":    name[:100],
+            "logo":    logo,
+            "won":     won,
+            "leading": leading,
+            "total":   won + leading,
+        })
+
+    parties.sort(key=lambda p: p["total"], reverse=True)
+    return parties
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -517,20 +643,36 @@ def party_seats():
         logging.error(f"party-seats failed: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/debug-lead-table")
 def debug_lead_table():
-    """Dumps exact DOM of the section so you can see real class names."""
+    """Dumps DOM + all class names to diagnose section-lead-table structure."""
     driver = make_driver()
     try:
         driver.get(BASE)
         try:
-            WebDriverWait(driver, 30).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR,
-                    ".section-lead-table, [class*='lead-table'], [class*='leadTable']"))
-            )
-        except: time.sleep(5)
-        time.sleep(2)
-        return jsonify(driver.execute_script(_DEBUG_JS))
+            WebDriverWait(driver, 30).until(lambda d: len(d.find_element(By.TAG_NAME, "body").text) > 500)
+        except Exception:
+            pass
+        time.sleep(4)
+        js_result = None
+        try:
+            js_result = driver.execute_script(_DEBUG_JS)
+        except Exception as e:
+            js_result = {"js_error": str(e)}
+        html = driver.page_source
+        soup = BeautifulSoup(html, "html.parser")
+        all_classes = sorted({c for tag in soup.find_all(True) for c in (tag.get("class") or [])})
+        party_related = [c for c in all_classes if any(k in c.lower() for k in ["party","lead","seat","result","table","win","vote","count","row","item"])]
+        interesting = []
+        for el in soup.find_all(True):
+            imgs = el.find_all("img", src=True)
+            if not imgs: continue
+            txt = el.get_text()
+            if not re.search(r"[0-9u0966-u096f]", txt): continue
+            if len(el.find_all(True)) > 30: continue
+            interesting.append({"tag": el.name, "classes": el.get("class", []), "imgs": [i.get("src","")[:80] for i in imgs[:3]], "text": txt.strip()[:120], "html": str(el)[:400]})
+        return jsonify({"js_result": js_result, "html_length": len(html), "party_related_classes": party_related[:80], "elements_with_img_and_number": interesting[:20]})
     finally:
         driver.quit()
 
