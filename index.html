@@ -12,7 +12,6 @@
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="Election 2082"/>
-  <!-- Apple touch icon (inline SVG as data URI) -->
   <link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
 
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -36,230 +35,233 @@
       display:flex; flex-direction:column; align-items:center;
     }
 
-    /* ── WIDGET MODE (standalone / ?widget=1) ── */
-    body.widget-mode {
-      padding: calc(.5rem + var(--safe-top)) .6rem calc(.5rem + var(--safe-bottom));
-      background: var(--ink);
-    }
+    /* ── WIDGET MODE ── */
+    body.widget-mode { padding: calc(.5rem + var(--safe-top)) .6rem calc(.5rem + var(--safe-bottom)); background: var(--ink); }
     body.widget-mode .full-ui { display:none }
     body.widget-mode #widget { display:flex }
-
-    /* ── FULL MODE ── */
     body:not(.widget-mode) #widget { display:none }
 
-    /* ══════════ WIDGET CARD ══════════ */
-    #widget {
-      display:none;
-      flex-direction:column;
-      width:100%; max-width:360px;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      border-radius:20px;
-      overflow:hidden;
-      box-shadow: 0 8px 32px rgba(0,0,0,.5);
-      font-family:'DM Mono',monospace;
-      min-height:100dvh;
+    /* ══════════════════════════════════════════════════
+       PARTY SEATS CARD  — always visible in full mode
+    ══════════════════════════════════════════════════ */
+    #seats-card {
+      width:100%; background:var(--ink);
+      border-radius:10px; overflow:hidden;
+      margin-bottom:1.1rem;
+      box-shadow:0 4px 24px rgba(26,26,46,.18);
     }
 
-    .w-header {
-      padding:.75rem 1rem .6rem;
-      background: rgba(192,57,43,.15);
-      border-bottom:1px solid rgba(192,57,43,.25);
+    .sc-header {
       display:flex; align-items:center; justify-content:space-between;
+      padding:.75rem 1.2rem .65rem;
+      background:linear-gradient(90deg, rgba(192,57,43,.25), rgba(192,57,43,.06));
+      border-bottom:1px solid rgba(255,255,255,.08);
     }
-    .w-title {
-      font-family:'Syne',sans-serif; font-size:.75rem; font-weight:800;
+    .sc-title {
+      font-family:'Syne',sans-serif; font-weight:800; font-size:.78rem;
       color:#fff; letter-spacing:.04em;
+      display:flex; align-items:center; gap:.5rem;
     }
-    .w-live {
-      display:flex; align-items:center; gap:.35rem;
-      font-size:.55rem; color:rgba(255,255,255,.55); letter-spacing:.08em;
+    .sc-live {
+      display:flex; align-items:center; gap:.3rem;
+      font-size:.52rem; color:rgba(255,255,255,.45); letter-spacing:.1em;
     }
-    .w-dot {
+    .sc-dot {
       width:6px; height:6px; border-radius:50%;
-      background: var(--green); animation: pulse 1.5s infinite;
-    }
-    .w-dot.loading { background: var(--gold) }
-    .w-dot.error   { background: var(--red); animation:none }
-
-    .w-slug {
-      padding:.5rem 1rem;
-      font-size:.6rem; color:rgba(255,255,255,.4); letter-spacing:.06em;
-      border-bottom:1px solid rgba(255,255,255,.06);
-      display:flex; align-items:center; justify-content:space-between;
-    }
-    .w-slug span { color:rgba(255,255,255,.7) }
-    .w-change-btn {
-      font-size:.55rem; color:var(--red); cursor:pointer;
-      padding:.15rem .4rem; border:1px solid rgba(192,57,43,.4); border-radius:3px;
-      background:transparent;
-      font-family:'DM Mono',monospace;
-    }
-    .w-change-btn:active { opacity:.7 }
-
-    .w-stats {
-      display:grid; grid-template-columns:1fr 1fr;
-      gap:.5rem; padding:.7rem;
-      border-bottom:1px solid rgba(255,255,255,.06);
-    }
-    .w-stat {
-      background:rgba(255,255,255,.04); border-radius:10px;
-      padding:.5rem .65rem;
-    }
-    .w-stat-lbl { font-size:.5rem; color:rgba(255,255,255,.35); margin-bottom:.2rem; letter-spacing:.06em }
-    .w-stat-val { font-family:'Syne',sans-serif; font-size:.95rem; font-weight:800; color:#fff }
-    .w-stat-val.green { color: var(--green) }
-    .w-stat-val.gold  { color: var(--gold)  }
-
-    .w-candidates { display:flex; flex-direction:column; padding:.4rem 0 .6rem }
-
-    .w-cand {
-      display:grid;
-      grid-template-columns: 28px 1fr auto;
-      align-items:center;
-      gap:.6rem;
-      padding:.45rem .9rem;
-      border-bottom:1px solid rgba(255,255,255,.04);
-      animation: slideIn .2s ease both;
-    }
-    .w-cand:last-child { border-bottom:none }
-    .w-cand.win { background:rgba(192,57,43,.12) }
-
-    .w-rank {
-      font-size:.6rem; color:rgba(255,255,255,.3);
-      text-align:center;
-    }
-    .w-cand.win .w-rank { color:var(--red); font-size:.85rem }
-
-    .w-photo {
-      width:28px; height:28px; border-radius:50%;
-      object-fit:cover; border:1.5px solid rgba(255,255,255,.15);
-      display:block; background:rgba(255,255,255,.1);
-      font-size:.9rem; display:flex; align-items:center; justify-content:center;
+      background:var(--green); animation:pulse 1.5s infinite;
       flex-shrink:0;
     }
-    .w-photo img {
-      width:100%; height:100%; border-radius:50%; object-fit:cover;
-    }
-    .w-cand.win .w-photo { border-color:var(--red) }
+    .sc-dot.loading { background:var(--gold) }
+    .sc-dot.error   { background:var(--red); animation:none }
 
-    .w-info { min-width:0 }
-    .w-name {
+    /* Parliament bar */
+    .sc-bar-wrap {
+      padding:.85rem 1.2rem .6rem;
+      border-bottom:1px solid rgba(255,255,255,.06);
+    }
+    .sc-majority-lbl {
+      display:flex; justify-content:space-between; align-items:center;
+      font-size:.5rem; color:rgba(255,255,255,.3); letter-spacing:.08em;
+      margin-bottom:.45rem;
+    }
+    .sc-majority-lbl span { color:rgba(255,255,255,.55) }
+    .sc-bar {
+      height:14px; border-radius:7px;
+      background:rgba(255,255,255,.07);
+      overflow:hidden; display:flex;
+      position:relative;
+    }
+    .sc-bar-seg {
+      height:100%;
+      transition:width .8s cubic-bezier(.4,0,.2,1);
+      position:relative;
+    }
+    .sc-bar-seg:first-child { border-radius:7px 0 0 7px }
+    .sc-bar-seg:last-child  { border-radius:0 7px 7px 0 }
+    /* majority line */
+    .sc-bar::after {
+      content:'';
+      position:absolute; top:0; bottom:0;
+      width:2px; background:rgba(255,215,0,.7);
+      left: var(--maj-pct, 50%);
+      border-radius:1px;
+      z-index:2;
+    }
+    .sc-maj-marker {
+      display:flex; justify-content:flex-end;
+      font-size:.46rem; color:rgba(255,215,0,.6);
+      letter-spacing:.06em; margin-top:.3rem;
+      padding-right: calc(100% - var(--maj-pct, 50%));
+    }
+
+    /* Party list */
+    .sc-list {
+      display:flex; flex-direction:column;
+      padding:.3rem 0 .4rem;
+    }
+    .sc-party {
+      display:grid;
+      grid-template-columns: 22px 1fr auto auto;
+      align-items:center;
+      gap:.55rem;
+      padding:.38rem 1.2rem;
+      border-bottom:1px solid rgba(255,255,255,.035);
+      animation:slideIn .18s ease both;
+    }
+    .sc-party:last-child { border-bottom:none }
+
+    .sc-logo {
+      width:22px; height:22px; border-radius:50%;
+      object-fit:contain; border:1.5px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06);
+      display:flex; align-items:center; justify-content:center;
+      font-size:.55rem; color:rgba(255,255,255,.4);
+      flex-shrink:0; overflow:hidden;
+    }
+    .sc-logo img { width:100%; height:100%; object-fit:contain; border-radius:50% }
+
+    .sc-pname {
       font-family:'Tiro Devanagari Nepal',serif;
-      font-size:.82rem; color:#fff;
+      font-size:.8rem; color:rgba(255,255,255,.85);
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
       line-height:1.3;
     }
-    .w-cand.win .w-name { color:#fff; font-weight:700 }
-    .w-party { font-size:.52rem; color:rgba(255,255,255,.35); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
 
-    .w-votes { text-align:right; flex-shrink:0 }
-    .w-votes-num {
-      font-family:'Syne',sans-serif; font-size:.78rem; font-weight:800;
-      color:rgba(255,255,255,.7);
+    .sc-won {
+      font-family:'Syne',sans-serif; font-weight:800;
+      font-size:.88rem; color:#fff;
+      text-align:right; white-space:nowrap; min-width:28px;
     }
-    .w-cand.win .w-votes-num { color:var(--red) }
-    .w-win-tag {
-      font-size:.48rem; color:var(--red); letter-spacing:.04em;
-      display:block; text-align:right;
-    }
+    .sc-won-lbl { font-size:.44rem; color:rgba(255,255,255,.3); text-align:right; letter-spacing:.06em }
 
-    .w-bar-row {
-      padding:.1rem .9rem .5rem;
+    .sc-lead {
+      display:flex; flex-direction:column; align-items:flex-end;
+      min-width:36px;
     }
-    .w-bar {
-      height:2px; background:rgba(255,255,255,.07); border-radius:2px;
-      overflow:hidden; margin-bottom:.25rem;
+    .sc-lead-num {
+      font-family:'Syne',sans-serif; font-size:.72rem; font-weight:700;
+      color:var(--gold); white-space:nowrap;
     }
-    .w-bar-fill {
-      height:100%; border-radius:2px;
-      background:rgba(255,255,255,.2);
-      transition:width .6s cubic-bezier(.4,0,.2,1);
-    }
-    .w-cand.win .w-bar-fill { background:var(--red) }
+    .sc-lead-lbl { font-size:.44rem; color:rgba(255,255,255,.3); letter-spacing:.06em }
 
-    .w-footer {
-      padding:.5rem 1rem calc(.5rem + var(--safe-bottom));
-      border-top:1px solid rgba(255,255,255,.06);
+    /* colour swatch on left edge */
+    .sc-party { border-left:3px solid transparent }
+
+    .sc-footer {
+      padding:.5rem 1.2rem;
       display:flex; align-items:center; justify-content:space-between;
+      border-top:1px solid rgba(255,255,255,.06);
     }
-    .w-updated { font-size:.5rem; color:rgba(255,255,255,.25) }
-    .w-expand {
-      font-size:.55rem; color:rgba(255,255,255,.4);
-      cursor:pointer; padding:.2rem .5rem;
+    .sc-updated { font-size:.5rem; color:rgba(255,255,255,.22) }
+    .sc-refresh {
+      font-size:.52rem; color:rgba(255,255,255,.35);
+      cursor:pointer; padding:.2rem .55rem;
       border:1px solid rgba(255,255,255,.1); border-radius:4px;
       background:transparent; font-family:'DM Mono',monospace;
     }
+    .sc-refresh:hover { color:#fff; border-color:rgba(255,255,255,.3) }
 
-    /* ══════════ WIDGET SELECTOR OVERLAY ══════════ */
-    #w-selector {
-      display:none;
-      position:fixed; inset:0; z-index:999;
-      background:rgba(10,10,20,.95);
-      flex-direction:column;
-      padding:calc(1rem + var(--safe-top)) 1rem 1rem;
+    /* Loading skeleton */
+    .sc-skeleton {
+      padding:1.4rem 1.2rem; text-align:center;
+      color:rgba(255,255,255,.2); font-size:.72rem; letter-spacing:.06em;
     }
+
+    /* ══════════ WIDGET CARD ══════════ */
+    #widget {
+      display:none; flex-direction:column;
+      width:100%; max-width:360px;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-radius:20px; overflow:hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+      font-family:'DM Mono',monospace; min-height:100dvh;
+    }
+    .w-header { padding:.75rem 1rem .6rem; background:rgba(192,57,43,.15); border-bottom:1px solid rgba(192,57,43,.25); display:flex; align-items:center; justify-content:space-between; }
+    .w-title { font-family:'Syne',sans-serif; font-size:.75rem; font-weight:800; color:#fff; letter-spacing:.04em; }
+    .w-live { display:flex; align-items:center; gap:.35rem; font-size:.55rem; color:rgba(255,255,255,.55); letter-spacing:.08em; }
+    .w-dot { width:6px; height:6px; border-radius:50%; background:var(--green); animation:pulse 1.5s infinite; }
+    .w-dot.loading { background:var(--gold) }
+    .w-dot.error   { background:var(--red); animation:none }
+    .w-slug { padding:.5rem 1rem; font-size:.6rem; color:rgba(255,255,255,.4); letter-spacing:.06em; border-bottom:1px solid rgba(255,255,255,.06); display:flex; align-items:center; justify-content:space-between; }
+    .w-slug span { color:rgba(255,255,255,.7) }
+    .w-change-btn { font-size:.55rem; color:var(--red); cursor:pointer; padding:.15rem .4rem; border:1px solid rgba(192,57,43,.4); border-radius:3px; background:transparent; font-family:'DM Mono',monospace; }
+    .w-change-btn:active { opacity:.7 }
+    .w-stats { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; padding:.7rem; border-bottom:1px solid rgba(255,255,255,.06); }
+    .w-stat { background:rgba(255,255,255,.04); border-radius:10px; padding:.5rem .65rem; }
+    .w-stat-lbl { font-size:.5rem; color:rgba(255,255,255,.35); margin-bottom:.2rem; letter-spacing:.06em }
+    .w-stat-val { font-family:'Syne',sans-serif; font-size:.95rem; font-weight:800; color:#fff }
+    .w-stat-val.green { color:var(--green) } .w-stat-val.gold { color:var(--gold) }
+    .w-candidates { display:flex; flex-direction:column; padding:.4rem 0 .6rem }
+    .w-cand { display:grid; grid-template-columns:28px 1fr auto; align-items:center; gap:.6rem; padding:.45rem .9rem; border-bottom:1px solid rgba(255,255,255,.04); animation:slideIn .2s ease both; }
+    .w-cand:last-child { border-bottom:none }
+    .w-cand.win { background:rgba(192,57,43,.12) }
+    .w-rank { font-size:.6rem; color:rgba(255,255,255,.3); text-align:center; }
+    .w-cand.win .w-rank { color:var(--red); font-size:.85rem }
+    .w-photo { width:28px; height:28px; border-radius:50%; object-fit:cover; border:1.5px solid rgba(255,255,255,.15); display:flex; align-items:center; justify-content:center; flex-shrink:0; background:rgba(255,255,255,.1); font-size:.9rem; }
+    .w-photo img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+    .w-cand.win .w-photo { border-color:var(--red) }
+    .w-info { min-width:0 }
+    .w-name { font-family:'Tiro Devanagari Nepal',serif; font-size:.82rem; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.3; }
+    .w-cand.win .w-name { font-weight:700 }
+    .w-party { font-size:.52rem; color:rgba(255,255,255,.35); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+    .w-votes { text-align:right; flex-shrink:0 }
+    .w-votes-num { font-family:'Syne',sans-serif; font-size:.78rem; font-weight:800; color:rgba(255,255,255,.7); }
+    .w-cand.win .w-votes-num { color:var(--red) }
+    .w-win-tag { font-size:.48rem; color:var(--red); letter-spacing:.04em; display:block; text-align:right; }
+    .w-bar-row { padding:.1rem .9rem .5rem }
+    .w-bar { height:2px; background:rgba(255,255,255,.07); border-radius:2px; overflow:hidden; margin-bottom:.25rem; }
+    .w-bar-fill { height:100%; border-radius:2px; background:rgba(255,255,255,.2); transition:width .6s cubic-bezier(.4,0,.2,1); }
+    .w-cand.win .w-bar-fill { background:var(--red) }
+    .w-footer { padding:.5rem 1rem calc(.5rem + var(--safe-bottom)); border-top:1px solid rgba(255,255,255,.06); display:flex; align-items:center; justify-content:space-between; }
+    .w-updated { font-size:.5rem; color:rgba(255,255,255,.25) }
+    .w-expand { font-size:.55rem; color:rgba(255,255,255,.4); cursor:pointer; padding:.2rem .5rem; border:1px solid rgba(255,255,255,.1); border-radius:4px; background:transparent; font-family:'DM Mono',monospace; }
+
+    /* ══════════ WIDGET SELECTOR ══════════ */
+    #w-selector { display:none; position:fixed; inset:0; z-index:999; background:rgba(10,10,20,.95); flex-direction:column; padding:calc(1rem + var(--safe-top)) 1rem 1rem; }
     #w-selector.open { display:flex }
-    .ws-title {
-      font-family:'Syne',sans-serif; font-size:1rem; font-weight:800;
-      color:#fff; margin-bottom:1rem; letter-spacing:.02em;
-    }
-    .ws-close {
-      position:absolute; top:calc(.75rem + var(--safe-top)); right:1rem;
-      font-size:1.2rem; color:rgba(255,255,255,.5); cursor:pointer;
-      background:none; border:none; padding:.25rem;
-    }
-    .ws-select {
-      width:100%; padding:.75rem .9rem; margin-bottom:.6rem;
-      border:1.5px solid rgba(255,255,255,.15); border-radius:8px;
-      background:rgba(255,255,255,.07); color:#fff;
-      font-family:'Tiro Devanagari Nepal',serif; font-size:.9rem;
-      appearance:none;
-    }
+    .ws-title { font-family:'Syne',sans-serif; font-size:1rem; font-weight:800; color:#fff; margin-bottom:1rem; letter-spacing:.02em; }
+    .ws-close { position:absolute; top:calc(.75rem + var(--safe-top)); right:1rem; font-size:1.2rem; color:rgba(255,255,255,.5); cursor:pointer; background:none; border:none; padding:.25rem; }
+    .ws-select { width:100%; padding:.75rem .9rem; margin-bottom:.6rem; border:1.5px solid rgba(255,255,255,.15); border-radius:8px; background:rgba(255,255,255,.07); color:#fff; font-family:'Tiro Devanagari Nepal',serif; font-size:.9rem; appearance:none; }
     .ws-select:focus { outline:none; border-color:var(--red) }
     .ws-select option { background:#1a1a2e; color:#fff }
-    .ws-btn {
-      padding:.75rem; border-radius:8px;
-      background:var(--red); color:#fff; border:none;
-      font-family:'Syne',sans-serif; font-size:.85rem; font-weight:800;
-      cursor:pointer; letter-spacing:.04em; margin-top:.4rem;
-    }
+    .ws-btn { padding:.75rem; border-radius:8px; background:var(--red); color:#fff; border:none; font-family:'Syne',sans-serif; font-size:.85rem; font-weight:800; cursor:pointer; letter-spacing:.04em; margin-top:.4rem; }
     .ws-btn:active { opacity:.8 }
 
-    /* ══════════ FULL UI (original design) ══════════ */
+    /* ══════════ FULL UI ══════════ */
     .full-ui { width:100%; max-width:740px; display:flex; flex-direction:column; align-items:center; }
     .full-ui > * { width:100% }
 
-    /* ── Install banner ── */
-    #install-banner {
-      display:none;
-      align-items:center; gap:.75rem;
-      padding:.7rem 1.1rem;
-      background:linear-gradient(90deg, var(--red), #922b21);
-      border-radius:8px; margin-bottom:1rem;
-      color:#fff;
-    }
+    #install-banner { display:none; align-items:center; gap:.75rem; padding:.7rem 1.1rem; background:linear-gradient(90deg,var(--red),#922b21); border-radius:8px; margin-bottom:1rem; color:#fff; }
     #install-banner.show { display:flex }
     .ib-icon { font-size:1.4rem; flex-shrink:0 }
     .ib-text { flex:1; min-width:0 }
     .ib-title { font-family:'Syne',sans-serif; font-weight:800; font-size:.8rem }
     .ib-sub { font-size:.6rem; opacity:.8; margin-top:.1rem }
-    .ib-btn {
-      padding:.4rem .8rem; border:1.5px solid rgba(255,255,255,.5);
-      border-radius:5px; background:transparent; color:#fff;
-      font-family:'DM Mono',monospace; font-size:.65rem; cursor:pointer;
-      white-space:nowrap; flex-shrink:0;
-    }
+    .ib-btn { padding:.4rem .8rem; border:1.5px solid rgba(255,255,255,.5); border-radius:5px; background:transparent; color:#fff; font-family:'DM Mono',monospace; font-size:.65rem; cursor:pointer; white-space:nowrap; flex-shrink:0; }
     .ib-btn:active { background:rgba(255,255,255,.15) }
     .ib-dismiss { font-size:.9rem; cursor:pointer; opacity:.6; padding:.2rem; flex-shrink:0 }
 
-    /* ── iOS install hint ── */
-    #ios-hint {
-      display:none;
-      padding:.75rem 1.1rem;
-      background:rgba(192,57,43,.1); border:1.5px solid rgba(192,57,43,.3);
-      border-radius:8px; margin-bottom:1rem;
-      font-size:.65rem; color:var(--muted); line-height:1.7;
-    }
+    #ios-hint { display:none; padding:.75rem 1.1rem; background:rgba(192,57,43,.1); border:1.5px solid rgba(192,57,43,.3); border-radius:8px; margin-bottom:1rem; font-size:.65rem; color:var(--muted); line-height:1.7; }
     #ios-hint.show { display:block }
     #ios-hint strong { color:var(--red) }
 
@@ -360,7 +362,7 @@
 </head>
 <body>
 
-<!-- ══ WIDGET (shown in standalone mode or ?widget=1) ══ -->
+<!-- ══ WIDGET ══ -->
 <div id="widget">
   <div class="w-header">
     <span class="w-title">🗳 निर्वाचन २०८२</span>
@@ -374,19 +376,11 @@
     <button class="w-change-btn" onclick="openWSelector()">छान्नुहोस्</button>
   </div>
   <div class="w-stats" id="w-stats" style="display:none">
-    <div class="w-stat">
-      <div class="w-stat-lbl">TOTAL VOTERS</div>
-      <div class="w-stat-val" id="ws-total">—</div>
-    </div>
-    <div class="w-stat">
-      <div class="w-stat-lbl">COUNTED</div>
-      <div class="w-stat-val green" id="ws-counted">—</div>
-    </div>
+    <div class="w-stat"><div class="w-stat-lbl">TOTAL VOTERS</div><div class="w-stat-val" id="ws-total">—</div></div>
+    <div class="w-stat"><div class="w-stat-lbl">COUNTED</div><div class="w-stat-val green" id="ws-counted">—</div></div>
   </div>
   <div class="w-candidates" id="w-candidates">
-    <div style="padding:2rem;text-align:center;color:rgba(255,255,255,.25);font-size:.72rem;font-family:'Tiro Devanagari Nepal',serif">
-      क्षेत्र छान्नुहोस्
-    </div>
+    <div style="padding:2rem;text-align:center;color:rgba(255,255,255,.25);font-size:.72rem;font-family:'Tiro Devanagari Nepal',serif">क्षेत्र छान्नुहोस्</div>
   </div>
   <div class="w-footer">
     <span class="w-updated" id="w-updated">—</span>
@@ -407,7 +401,7 @@
 <!-- ══ FULL UI ══ -->
 <div class="full-ui">
 
-  <!-- Install banner (Android/Desktop) -->
+  <!-- Install banner -->
   <div id="install-banner">
     <div class="ib-icon">📲</div>
     <div class="ib-text">
@@ -418,7 +412,7 @@
     <span class="ib-dismiss" onclick="dismissInstall()">✕</span>
   </div>
 
-  <!-- iOS install hint -->
+  <!-- iOS hint -->
   <div id="ios-hint">
     📱 <strong>iPhone/iPad मा Install:</strong> Safari मा खोल्नुहोस् →
     Share button <strong>⎙</strong> थिच्नुहोस् →
@@ -431,6 +425,41 @@
     <h1>नेपाल <em>निर्वाचन</em> परिणाम</h1>
     <p class="subtitle">Election Results 2082 — by Bishal Kafle</p>
   </header>
+
+  <!-- ══════════ PARTY SEATS CARD (always visible) ══════════ -->
+  <div id="seats-card">
+    <div class="sc-header">
+      <div class="sc-title">
+        🏛 दलगत सिट स्थिति — Party Seat Count
+      </div>
+      <div class="sc-live">
+        <div class="sc-dot loading" id="sc-dot"></div>
+        <span id="sc-live-txt">LOADING</span>
+      </div>
+    </div>
+
+    <!-- Parliament bar -->
+    <div class="sc-bar-wrap" id="sc-bar-wrap" style="display:none">
+      <div class="sc-majority-lbl">
+        <span>०</span>
+        <span id="sc-counted-seats">— / 165 FPTP</span>
+        <span>165</span>
+      </div>
+      <div class="sc-bar" id="sc-bar" style="--maj-pct:83.6%"></div>
+      <div class="sc-maj-marker" id="sc-maj-marker" style="--maj-pct:83.6%">▲ बहुमत 138</div>
+    </div>
+
+    <!-- Party list -->
+    <div class="sc-list" id="sc-list">
+      <div class="sc-skeleton">⏳ दल सिट तथ्यांक लोड हुँदैछ…</div>
+    </div>
+
+    <div class="sc-footer">
+      <span class="sc-updated" id="sc-updated">—</span>
+      <button class="sc-refresh" onclick="fetchSeats(true)">↺ Refresh</button>
+    </div>
+  </div>
+  <!-- ══════════ END PARTY SEATS CARD ══════════ -->
 
   <div class="panel">
     <div class="ps">
@@ -484,8 +513,34 @@ let currentSlug = localStorage.getItem('election_slug') || '';
 let swReg = null;
 let deferredInstall = null;
 let isWidget = false;
+let seatsPollTimer = null;
 
 const $ = id => document.getElementById(id);
+
+// ── Party colour palette (fallback when server doesn't give a colour) ─────
+const PARTY_COLORS = {
+  // Common Nepali party short names → brand colours
+  'नेपाली कांग्रेस': '#1565c0', 'NC': '#1565c0', 'काँग्रेस': '#1565c0',
+  'एमाले': '#c62828', 'UML': '#c62828', 'CPN-UML': '#c62828',
+  'माओवादी': '#b71c1c', 'Maoist': '#b71c1c',
+  'राष्ट्रिय स्वतन्त्र पार्टी': '#7b1fa2', 'RSP': '#7b1fa2', 'स्वतन्त्र पार्टी': '#7b1fa2',
+  'जनमत': '#ef6c00', 'JANAMAT': '#ef6c00',
+  'लोसपा': '#2e7d32', 'LSP': '#2e7d32',
+  'नागरिक उन्मुक्ति': '#00838f',
+  'राप्रपा': '#f57f17',
+};
+const FALLBACK_COLORS = [
+  '#1565c0','#c62828','#7b1fa2','#2e7d32','#ef6c00',
+  '#00838f','#f57f17','#558b2f','#4527a0','#6a1520',
+  '#0277bd','#ad1457','#00695c','#4e342e','#37474f',
+];
+
+function partyColor(name, idx) {
+  for (const key of Object.keys(PARTY_COLORS)) {
+    if (name.includes(key) || key.includes(name)) return PARTY_COLORS[key];
+  }
+  return FALLBACK_COLORS[idx % FALLBACK_COLORS.length];
+}
 
 // ── NAV data ──────────────────────────────────────────────────────────────
 const NAV = [
@@ -548,14 +603,14 @@ function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 function pv(v){ const m={'०':'0','१':'1','२':'2','३':'3','४':'4','५':'5','६':'6','७':'7','८':'8','९':'9'}; return parseInt(String(v??'0').replace(/[०-९]/g,d=>m[d]).replace(/\D/g,''),10)||0 }
 function ss(m,s=''){ $('status').className=s; $('st').textContent=m }
 
-// ── Detect standalone (PWA installed) ────────────────────────────────────
+// ── Detect standalone ─────────────────────────────────────────────────────
 function isStandalone(){
   return window.matchMedia('(display-mode: standalone)').matches
     || window.navigator.standalone === true
     || new URLSearchParams(location.search).get('widget') === '1';
 }
 
-// ── Init PWA mode ─────────────────────────────────────────────────────────
+// ── Init mode ─────────────────────────────────────────────────────────────
 function initMode(){
   if(isStandalone()){
     isWidget = true;
@@ -573,7 +628,6 @@ window.addEventListener('beforeinstallprompt', e => {
   deferredInstall = e;
   if(!localStorage.getItem('pwa_dismissed')) $('install-banner').classList.add('show');
 });
-
 function installPWA(){
   if(!deferredInstall) return;
   deferredInstall.prompt();
@@ -592,6 +646,89 @@ function showInstallPrompts(){
     $('ios-hint').classList.add('show');
     localStorage.setItem('ios_hint_shown','1');
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PARTY SEATS CARD
+// ─────────────────────────────────────────────────────────────────────────
+
+async function fetchSeats(force = false){
+  $('sc-dot').className = 'sc-dot loading';
+  $('sc-live-txt').textContent = 'LOADING';
+  try {
+    const url = `${API}/party-seats${force ? '?t=' + Date.now() : ''}`;
+    const r = await fetch(url);
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    if(data.error) throw new Error(data.error);
+    renderSeats(data);
+    $('sc-dot').className = 'sc-dot';
+    $('sc-live-txt').textContent = 'LIVE';
+  } catch(e) {
+    $('sc-dot').className = 'sc-dot error';
+    $('sc-live-txt').textContent = 'ERROR';
+    $('sc-list').innerHTML = `<div class="sc-skeleton" style="color:rgba(255,100,80,.6)">⚠ लोड गर्न सकिएन: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderSeats(data){
+  const parties = data.parties || [];
+  const majority = data.majority || 138;
+  const totalSeats = data.total_seats || 165;
+
+  if(!parties.length){
+    $('sc-list').innerHTML = '<div class="sc-skeleton">डाटा उपलब्ध छैन</div>';
+    return;
+  }
+
+  // Parliament bar
+  const totalCounted = parties.reduce((s,p)=>s+(p.total||0),0);
+  const barWrap = $('sc-bar-wrap');
+  barWrap.style.display = 'block';
+
+  const majPct = ((majority / totalSeats) * 100).toFixed(2) + '%';
+  $('sc-bar').style.setProperty('--maj-pct', majPct);
+  $('sc-maj-marker').style.setProperty('--maj-pct', majPct);
+  $('sc-counted-seats').textContent = `${totalCounted} / ${totalSeats} FPTP`;
+
+  // Build bar segments proportional to total seats counted
+  const barEl = $('sc-bar');
+  if(totalCounted > 0){
+    barEl.innerHTML = parties.slice(0, 10).map((p, i) => {
+      const col = p.color || partyColor(p.party, i);
+      const w = ((p.total / totalSeats) * 100).toFixed(2);
+      return `<div class="sc-bar-seg" style="width:${w}%;background:${col}" title="${esc(p.party)}: ${p.total}"></div>`;
+    }).join('');
+  } else {
+    barEl.innerHTML = '<div class="sc-bar-seg" style="width:100%;background:rgba(255,255,255,.05)"></div>';
+  }
+
+  // Party list rows
+  $('sc-list').innerHTML = parties.map((p, i) => {
+    const col = p.color || partyColor(p.party, i);
+    const logoEl = p.logo
+      ? `<div class="sc-logo"><img src="${esc(p.logo)}" alt="" onerror="this.parentNode.textContent='🏛'"></div>`
+      : `<div class="sc-logo" style="background:${col}22;border-color:${col}44;color:${col}">●</div>`;
+    const won     = p.won     ?? 0;
+    const leading = p.leading ?? 0;
+    const total   = p.total   ?? (won + leading);
+    return `<div class="sc-party" style="border-left-color:${col};animation-delay:${i*25}ms">
+      ${logoEl}
+      <div class="sc-pname">${esc(p.party)}</div>
+      <div style="text-align:right">
+        <div class="sc-won">${total > 0 ? total : '—'}</div>
+        <div class="sc-won-lbl">जम्मा / TOTAL</div>
+      </div>
+      <div class="sc-lead">
+        <div class="sc-lead-num">${won > 0 ? won : '—'}</div>
+        <div class="sc-lead-lbl">WON</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Footer timestamp
+  const now = new Date();
+  $('sc-updated').textContent = `Updated ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')} · ${data.scraped_at || ''}`;
 }
 
 // ── Widget mode controls ──────────────────────────────────────────────────
@@ -615,12 +752,9 @@ function confirmWidget(){
   startWidget(slug);
 }
 
-// Populate widget selectors (same NAV data)
 function populateWidgetNav(){
-  const wsp = $('ws-sp'), wsd = $('ws-sd'), wsa = $('ws-sa');
-  NAV.forEach((p,pi)=>{
-    const o=document.createElement('option'); o.value=pi; o.textContent=p.name; wsp.appendChild(o);
-  });
+  const wsp=$('ws-sp'), wsd=$('ws-sd'), wsa=$('ws-sa');
+  NAV.forEach((p,pi)=>{ const o=document.createElement('option'); o.value=pi; o.textContent=p.name; wsp.appendChild(o); });
   wsp.onchange=()=>{
     const pi=wsp.value; wsd.innerHTML='<option value="">— जिल्ला —</option>'; wsa.innerHTML='<option value="">— निर्वाचन क्षेत्र —</option>'; wsd.disabled=wsa.disabled=true; $('ws-confirm').disabled=true;
     if(pi==='') return;
@@ -647,7 +781,6 @@ function startWidget(slug){
   fetchWidget(slug);
   if(wPollTimer) clearInterval(wPollTimer);
   wPollTimer = setInterval(()=>fetchWidget(slug), 30000);
-  // Tell service worker to poll too
   if(swReg?.active) swReg.active.postMessage({type:'START_POLL', slug, interval:30000});
 }
 
@@ -672,77 +805,53 @@ function renderWidget(data){
   const total = data.total_voters || 0;
   const counted = list.reduce((s,c)=>s+(c.votes_int||pv(c.votes)),0);
   const maxV = Math.max(...list.map(c=>c.votes_int||pv(c.votes)),1);
-
-  if(total>0 || counted>0){
+  if(total>0||counted>0){
     $('w-stats').style.display='grid';
-    $('ws-total').textContent = total>0 ? total.toLocaleString() : '—';
-    $('ws-counted').textContent = counted>0 ? counted.toLocaleString() : '—';
+    $('ws-total').textContent = total>0?total.toLocaleString():'—';
+    $('ws-counted').textContent = counted>0?counted.toLocaleString():'—';
   }
-
   $('w-candidates').innerHTML = list.slice(0,8).map((c,i)=>{
-    const vi = c.votes_int||pv(c.votes);
-    const pct = maxV>1?Math.round(vi/maxV*100):0;
-    const win = c.winner?'win':'';
-    const rank = c.winner?'▲':String(i+1);
-    const photo = c.photo
-      ? `<div class="w-photo"><img src="${esc(c.photo)}" onerror="this.parentNode.textContent='👤'"></div>`
-      : `<div class="w-photo">👤</div>`;
+    const vi=c.votes_int||pv(c.votes);
+    const pct=maxV>1?Math.round(vi/maxV*100):0;
+    const win=c.winner?'win':'';
+    const rank=c.winner?'▲':String(i+1);
+    const photo=c.photo?`<div class="w-photo"><img src="${esc(c.photo)}" onerror="this.parentNode.textContent='👤'"></div>`:`<div class="w-photo">👤</div>`;
     return `<div class="w-cand ${win}" style="animation-delay:${i*30}ms">
-      <div class="w-rank">${rank}</div>
-      ${photo}
-      <div class="w-info">
-        <div class="w-name">${esc(c.candidate_name)}</div>
-        <div class="w-party">${esc(c.party||'—')}</div>
-      </div>
-      <div class="w-votes">
-        <div class="w-votes-num">${vi>0?vi.toLocaleString():'—'}</div>
-        ${c.winner?'<span class="w-win-tag">✓ विजयी</span>':''}
-      </div>
+      <div class="w-rank">${rank}</div>${photo}
+      <div class="w-info"><div class="w-name">${esc(c.candidate_name)}</div><div class="w-party">${esc(c.party||'—')}</div></div>
+      <div class="w-votes"><div class="w-votes-num">${vi>0?vi.toLocaleString():'—'}</div>${c.winner?'<span class="w-win-tag">✓ विजयी</span>':''}</div>
     </div>
-    <div class="w-bar-row">
-      <div class="w-bar"><div class="w-bar-fill ${win}" style="width:${pct}%"></div></div>
-    </div>`;
+    <div class="w-bar-row"><div class="w-bar"><div class="w-bar-fill ${win}" style="width:${pct}%"></div></div></div>`;
   }).join('');
-
-  const now = new Date();
-  $('w-updated').textContent = `Updated ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
-
-  // Also update full UI if open
+  const now=new Date();
+  $('w-updated').textContent=`Updated ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
   if(!isWidget) renderCards(data);
 }
 
-// ── Service Worker ────────────────────────────────────────────────────────
+// ── SW ────────────────────────────────────────────────────────────────────
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('/sw.js').then(reg => {
     swReg = reg;
-    // Listen for background updates
     navigator.serviceWorker.addEventListener('message', e => {
-      if(e.data?.type === 'RESULT_UPDATE' && e.data.data) renderWidget(e.data.data);
+      if(e.data?.type==='RESULT_UPDATE' && e.data.data) renderWidget(e.data.data);
     });
   });
 }
 
-// ── Notifications permission ──────────────────────────────────────────────
 async function requestNotifPermission(){
-  if('Notification' in window && Notification.permission === 'default'){
-    await Notification.requestPermission();
-  }
+  if('Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
 }
 
-// ── Full UI: dropdowns ────────────────────────────────────────────────────
+// ── Full UI dropdowns ─────────────────────────────────────────────────────
 const sp=$('sp'), sd=$('sd'), sa=$('sa');
-
-NAV.forEach((p,pi)=>{
-  const o=document.createElement('option'); o.value=pi; o.textContent=p.name; sp.appendChild(o);
-});
-
+NAV.forEach((p,pi)=>{ const o=document.createElement('option'); o.value=pi; o.textContent=p.name; sp.appendChild(o); });
 sp.onchange=()=>{
   const pi=sp.value; sd.innerHTML='<option value="">— जिल्ला —</option>'; sa.innerHTML='<option value="">— निर्वाचन क्षेत्र —</option>';
   sd.disabled=sa.disabled=true; $('br').disabled=$('bw').disabled=true;
   $('results').innerHTML='<div class="placeholder">जिल्ला छान्नुहोस्…</div>';
   $('voter-panel').classList.remove('on');
   if(pi==='') return;
-  NAV[pi].districts.forEach((d,di)=>{const o=document.createElement('option'); o.value=di; o.textContent=`${d.name} (${d.a.length})`; sd.appendChild(o)});
+  NAV[pi].districts.forEach((d,di)=>{ const o=document.createElement('option'); o.value=di; o.textContent=`${d.name} (${d.a.length})`; sd.appendChild(o) });
   sd.disabled=false; ss(NAV[pi].name,'success');
 };
 sd.onchange=()=>{
@@ -752,25 +861,24 @@ sd.onchange=()=>{
   $('voter-panel').classList.remove('on');
   if(pi===''||di==='') return;
   const dist=NAV[pi].districts[di];
-  dist.a.forEach(n=>{const o=document.createElement('option'); o.value=`${dist.slug}-${n}`; o.textContent=`${dist.name}-${n}`; sa.appendChild(o)});
+  dist.a.forEach(n=>{ const o=document.createElement('option'); o.value=`${dist.slug}-${n}`; o.textContent=`${dist.name}-${n}`; sa.appendChild(o) });
   sa.disabled=false; ss(`${dist.name} — ${dist.a.length} area(s)`,'success');
 };
 sa.onchange=()=>{
   const slug=sa.value; if(!slug) return;
-  currentSlug = slug;
-  localStorage.setItem('election_slug', slug);
+  currentSlug=slug; localStorage.setItem('election_slug',slug);
   $('br').disabled=$('bc').disabled=$('bw').disabled=false;
-  clearTimeout(deb); deb=setTimeout(()=>fetch2(slug), DEB);
+  clearTimeout(deb); deb=setTimeout(()=>fetch2(slug),DEB);
   requestNotifPermission();
 };
 
-// ── Full UI: fetch & render ───────────────────────────────────────────────
+// ── Full UI fetch ─────────────────────────────────────────────────────────
 function showVS(totalVoters, candidates){
-  const totalCounted = candidates.reduce((sum,c)=>sum+(c.votes_int||pv(c.votes)),0);
-  const remaining = totalVoters>0 ? Math.max(totalVoters-totalCounted,0) : null;
-  $('sv-t').textContent = totalVoters>0 ? totalVoters.toLocaleString() : '—';
-  $('sv-counted').textContent = totalCounted>0 ? totalCounted.toLocaleString() : '—';
-  $('sv-remaining').textContent = remaining!==null ? remaining.toLocaleString() : '—';
+  const totalCounted=candidates.reduce((sum,c)=>sum+(c.votes_int||pv(c.votes)),0);
+  const remaining=totalVoters>0?Math.max(totalVoters-totalCounted,0):null;
+  $('sv-t').textContent=totalVoters>0?totalVoters.toLocaleString():'—';
+  $('sv-counted').textContent=totalCounted>0?totalCounted.toLocaleString():'—';
+  $('sv-remaining').textContent=remaining!==null?remaining.toLocaleString():'—';
   if(totalVoters>0||totalCounted>0) $('voter-panel').classList.add('on');
   else $('voter-panel').classList.remove('on');
 }
@@ -786,7 +894,7 @@ async function fetch2(slug){
     if(!r.ok) throw new Error(`HTTP ${r.status}`);
     const data=await r.json();
     if(data.error) throw new Error(data.error);
-    showVS(data.total_voters||0, data.candidates||[]);
+    showVS(data.total_voters||0,data.candidates||[]);
     renderCards(data);
     ss(`✓ ${data.scraped_at} · ${data.candidates?.length||0} उम्मेदवार · २०८२`,'success');
   }catch(e){
@@ -798,7 +906,7 @@ async function fetch2(slug){
 
 function renderCards(data){
   const list=data.candidates??[];
-  if(!list.length){$('results').innerHTML='<div class="placeholder">उम्मेदवार फेला परेन</div>';return}
+  if(!list.length){ $('results').innerHTML='<div class="placeholder">उम्मेदवार फेला परेन</div>'; return }
   const maxV=Math.max(...list.map(c=>c.votes_int||pv(c.votes)),1);
   const hasV=list.some(c=>(c.votes_int||pv(c.votes))>0);
   let html=`<div class="year-badge"><span class="year-tag">📋 प्रतिनिधि सभा निर्वाचन २०८२</span><span class="cand-count">${list.length} उम्मेदवार</span></div>`;
@@ -852,7 +960,6 @@ function preSelectSlug(slug){
   }
 }
 
-// ── Listen for SW background updates ─────────────────────────────────────
 if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('message', e=>{
     if(e.data?.type==='RESULT_UPDATE' && isWidget) renderWidget(e.data.data);
@@ -862,6 +969,10 @@ if('serviceWorker' in navigator){
 // ── Boot ──────────────────────────────────────────────────────────────────
 populateWidgetNav();
 initMode();
+
+// Fetch party seats immediately on load, then every 30s
+fetchSeats();
+seatsPollTimer = setInterval(() => fetchSeats(), 30000);
 </script>
 </body>
 </html>
