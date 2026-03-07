@@ -336,125 +336,113 @@
     .footer-link{font-size:.72rem;color:var(--red);text-decoration:none;letter-spacing:.03em;border-bottom:1px dashed rgba(192,57,43,.35);padding-bottom:1px}
 
     /* ═══════════════════════════════════
-       TRENDING / HOT-SEATS  ── full UI
+       SAMAUPATIK (PR) CARD ── full UI
     ═══════════════════════════════════ */
-    #trend-card{
+    #pr-card{
       width:100%;background:#0f1120;
       border-radius:12px;overflow:hidden;
       margin-bottom:1.1rem;
-      border:1px solid rgba(255,150,0,.12);
+      border:1px solid rgba(80,160,255,.14);
       box-shadow:0 6px 32px rgba(0,0,0,.22);
     }
-    .tc-hd{display:flex;align-items:center;justify-content:space-between;padding:.8rem 1.1rem .7rem;background:linear-gradient(90deg,rgba(230,115,0,.2),rgba(230,115,0,.04));border-bottom:1px solid rgba(255,150,0,.1)}
-    .tc-hd-left{display:flex;align-items:center;gap:.55rem}
-    .tc-hd-title{font-family:'Syne',sans-serif;font-weight:800;font-size:.78rem;color:#fff;letter-spacing:.04em;line-height:1.2}
-    .tc-hd-sub{font-size:.52rem;color:rgba(255,255,255,.32);margin-top:.1rem}
-    .tc-hd-right{display:flex;align-items:center;gap:.4rem}
-    .tc-dot{width:7px;height:7px;border-radius:50%;background:var(--gold);animation:pulse 1.5s infinite;flex-shrink:0}
-    .tc-dot.loading{background:rgba(255,255,255,.3)}.tc-dot.error{background:var(--red);animation:none}
-    .tc-live-txt{font-size:.52rem;color:rgba(255,255,255,.35);letter-spacing:.1em}
+    .pr-hd{display:flex;align-items:center;justify-content:space-between;padding:.8rem 1.1rem .7rem;background:linear-gradient(90deg,rgba(40,100,220,.22),rgba(40,100,220,.04));border-bottom:1px solid rgba(80,160,255,.12)}
+    .pr-hd-left{display:flex;align-items:center;gap:.55rem}
+    .pr-hd-title{font-family:'Syne',sans-serif;font-weight:800;font-size:.78rem;color:#fff;letter-spacing:.04em;line-height:1.2}
+    .pr-hd-sub{font-size:.52rem;color:rgba(255,255,255,.32);margin-top:.1rem}
+    .pr-hd-right{display:flex;align-items:center;gap:.4rem}
+    .pr-dot{width:7px;height:7px;border-radius:50%;background:#4fa3ff;animation:pulse 1.5s infinite;flex-shrink:0}
+    .pr-dot.loading{background:rgba(255,255,255,.3)}.pr-dot.error{background:var(--red);animation:none}
+    .pr-live-txt{font-size:.52rem;color:rgba(255,255,255,.35);letter-spacing:.1em}
 
-    /* body of the card — list of sections */
-    .tc-body{display:flex;flex-direction:column}
+    /* summary bar — 110 seats */
+    .pr-summary-bar{padding:.55rem 1.1rem .45rem;border-bottom:1px solid rgba(255,255,255,.05)}
+    .pr-bar-track{
+      position:relative;height:10px;border-radius:5px;
+      background:rgba(255,255,255,.06);
+      display:flex;overflow:hidden;margin:.35rem 0 .25rem;
+    }
+    .pr-bar-seg{height:100%;min-width:2px;transition:width .4s ease}
+    .pr-bar-meta{display:flex;justify-content:space-between;font-size:.46rem;color:rgba(255,255,255,.28)}
 
-    /* one constituency section */
-    .tc-section{border-bottom:1px solid rgba(255,255,255,.05)}
-    .tc-section:last-child{border-bottom:none}
-
-    /* section header row */
-    .tc-sec-hd{
-      display:flex;align-items:center;justify-content:space-between;
-      padding:.55rem 1.1rem .5rem;
-      background:rgba(255,150,0,.04);
-      cursor:default;
-    }
-    .tc-sec-name{
-      font-family:'Syne',sans-serif;font-weight:800;
-      font-size:.72rem;color:rgba(255,255,255,.9);
-      letter-spacing:.04em;
-    }
-    .tc-sec-badge{
-      font-size:.44rem;letter-spacing:.06em;
-      padding:.12rem .45rem;border-radius:10px;
-      background:rgba(255,150,0,.12);color:rgba(255,150,0,.8);
-    }
-    .tc-view-all{
-      font-size:.52rem;color:rgba(255,150,0,.7);
-      cursor:pointer;padding:.12rem .45rem;
-      border:1px solid rgba(255,150,0,.25);border-radius:4px;
-      background:transparent;font-family:'DM Mono',monospace;
-      transition:all .12s;white-space:nowrap;
-    }
-    .tc-view-all:hover{color:var(--gold);border-color:var(--gold)}
-
-    /* grid of candidate cards inside each section */
-    .tc-cards{
+    /* party rows table */
+    .pr-col-heads{
       display:grid;
-      grid-template-columns:repeat(auto-fill,minmax(118px,1fr));
-      gap:.6rem;
-      padding:.65rem 1.1rem .8rem;
+      grid-template-columns:28px 1fr 72px 58px 58px;
+      gap:0 .4rem;
+      padding:.38rem 1.1rem .3rem;
+      border-bottom:1px solid rgba(255,255,255,.06);
     }
-    .tc-card{
-      background:rgba(255,255,255,.04);
-      border:1px solid rgba(255,150,0,.08);
-      border-radius:10px;
-      display:flex;flex-direction:column;align-items:center;
-      padding:.6rem .5rem .55rem;gap:.3rem;
-      animation:up .22s ease both;
-      transition:background .12s,border-color .12s;
+    .pr-col-head{font-family:'DM Mono',monospace;font-size:.48rem;color:rgba(255,255,255,.28);letter-spacing:.08em;text-transform:uppercase;text-align:right}
+    .pr-col-head:nth-child(2){text-align:left}
+    .pr-col-head:nth-child(1){text-align:center}
+
+    .pr-rows{display:flex;flex-direction:column}
+    .pr-row{
+      display:grid;
+      grid-template-columns:28px 1fr 72px 58px 58px;
+      gap:0 .4rem;
+      align-items:center;
+      padding:.42rem 1.1rem;
+      border-bottom:1px solid rgba(255,255,255,.04);
+      transition:background .1s;
     }
-    .tc-card:hover{background:rgba(255,255,255,.07);border-color:rgba(255,150,0,.22)}
-    .tc-card a{color:inherit;text-decoration:none}
+    .pr-row:last-child{border-bottom:none}
+    .pr-row:hover{background:rgba(255,255,255,.03)}
 
-    /* photo + party badge */
-    .tc-photo-wrap{position:relative;flex-shrink:0}
-    .tc-photo{width:50px;height:50px;border-radius:50%;object-fit:cover;display:block;border:2px solid rgba(255,150,0,.28);background:rgba(255,255,255,.07)}
-    .tc-photo-fb{width:50px;height:50px;border-radius:50%;background:rgba(255,150,0,.1);display:flex;align-items:center;justify-content:center;font-size:1.35rem;border:2px solid rgba(255,150,0,.18)}
-    .tc-party-logo{position:absolute;bottom:-3px;right:-5px;width:18px;height:18px;border-radius:50%;border:2px solid #0f1120;background:#0f1120;object-fit:contain;display:block}
+    /* logo */
+    .pr-logo{width:24px;height:24px;border-radius:50%;object-fit:contain;display:block;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06)}
+    .pr-logo-fb{width:24px;height:24px;border-radius:50%;background:rgba(80,160,255,.12);display:flex;align-items:center;justify-content:center;font-size:.75rem}
 
-    .tc-name{font-family:'Tiro Devanagari Nepal',serif;font-size:.74rem;color:rgba(255,255,255,.9);text-align:center;line-height:1.35;width:100%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-    .tc-party-name{font-size:.46rem;color:rgba(255,150,0,.7);text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.04em}
-    .tc-votes{font-family:'Syne',sans-serif;font-weight:800;font-size:.76rem;color:var(--gold);text-align:center}
-    .tc-status{font-size:.43rem;padding:.1rem .36rem;border-radius:3px;background:rgba(39,174,96,.18);color:var(--green);letter-spacing:.04em;text-align:center}
+    /* name */
+    .pr-name{
+      font-family:'Tiro Devanagari Nepal',serif;
+      font-size:.72rem;color:rgba(255,255,255,.9);
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+      line-height:1.3;
+    }
+    .pr-name-en{font-size:.46rem;color:rgba(255,255,255,.32);font-family:'DM Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-    .tc-placeholder{padding:1.6rem 1.1rem;text-align:center;color:rgba(255,255,255,.22);font-size:.72rem}
-    .tc-placeholder.err{color:rgba(255,120,80,.7)}
-    .tc-ft{display:flex;align-items:center;justify-content:space-between;padding:.5rem 1.1rem;border-top:1px solid rgba(255,150,0,.08)}
-    .tc-ft-updated{font-size:.48rem;color:rgba(255,255,255,.2)}
-    .tc-ft-btn{font-size:.52rem;color:rgba(255,255,255,.3);cursor:pointer;padding:.18rem .5rem;border:1px solid rgba(255,255,255,.1);border-radius:4px;background:transparent;font-family:'DM Mono',monospace;transition:all .12s}
-    .tc-ft-btn:hover{color:#fff;border-color:rgba(255,255,255,.3)}
+    /* votes */
+    .pr-votes{font-family:'DM Mono',monospace;font-size:.65rem;color:rgba(255,255,255,.75);text-align:right}
+
+    /* percentage + bar */
+    .pr-pct-cell{display:flex;flex-direction:column;gap:.18rem;align-items:flex-end}
+    .pr-pct-val{font-family:'Syne',sans-serif;font-weight:800;font-size:.68rem;color:#4fa3ff}
+    .pr-pct-bar{height:3px;border-radius:2px;background:rgba(80,160,255,.5);min-width:2px;max-width:100%;transition:width .4s}
+
+    /* probable seats */
+    .pr-seat-cell{display:flex;flex-direction:column;align-items:flex-end;gap:.12rem}
+    .pr-seat-val{font-family:'Syne',sans-serif;font-weight:800;font-size:.8rem;color:var(--gold)}
+    .pr-seat-bar{height:3px;border-radius:2px;background:rgba(255,180,0,.45);min-width:2px;transition:width .4s}
+
+    .pr-placeholder{padding:1.8rem 1.1rem;text-align:center;color:rgba(255,255,255,.2);font-size:.72rem}
+    .pr-placeholder.err{color:rgba(255,100,80,.7)}
+    .pr-ft{display:flex;align-items:center;justify-content:space-between;padding:.5rem 1.1rem;border-top:1px solid rgba(80,160,255,.08)}
+    .pr-ft-updated{font-size:.48rem;color:rgba(255,255,255,.2)}
+    .pr-ft-btn{font-size:.52rem;color:rgba(255,255,255,.3);cursor:pointer;padding:.18rem .5rem;border:1px solid rgba(255,255,255,.1);border-radius:4px;background:transparent;font-family:'DM Mono',monospace;transition:all .12s}
+    .pr-ft-btn:hover{color:#fff;border-color:rgba(255,255,255,.3)}
 
     /* ═══════════════════════════════════
-       TRENDING ── widget panel
+       SAMAUPATIK ── widget panel
     ═══════════════════════════════════ */
-    .wt-header{display:flex;align-items:center;justify-content:space-between;padding:.5rem 1rem .42rem;border-bottom:1px solid rgba(255,150,0,.1);flex-shrink:0}
-    .wt-title{font-family:'Syne',sans-serif;font-size:.65rem;font-weight:800;color:var(--gold);letter-spacing:.04em}
-    .wt-src{font-size:.44rem;color:rgba(255,255,255,.25);letter-spacing:.06em}
+    .wp-header{display:flex;align-items:center;justify-content:space-between;padding:.5rem 1rem .4rem;border-bottom:1px solid rgba(80,160,255,.12);flex-shrink:0}
+    .wp-title{font-family:'Syne',sans-serif;font-size:.65rem;font-weight:800;color:#4fa3ff;letter-spacing:.04em}
+    .wp-sub{font-size:.44rem;color:rgba(255,255,255,.25);letter-spacing:.05em}
 
-    /* area label row inside widget panel */
-    .wt-area-row{
-      display:flex;align-items:center;justify-content:space-between;
-      padding:.38rem 1rem .25rem;
-      border-bottom:1px solid rgba(255,255,255,.04);
-      flex-shrink:0;
+    .wp-rows{display:flex;flex-direction:column;overflow-y:auto;padding:.35rem 0}
+    .wp-row{
+      display:grid;grid-template-columns:26px 1fr 48px 42px;
+      gap:0 .35rem;align-items:center;
+      padding:.32rem 1rem;border-bottom:1px solid rgba(255,255,255,.04);
     }
-    .wt-area-name{font-family:'Syne',sans-serif;font-size:.58rem;font-weight:800;color:rgba(255,255,255,.7);letter-spacing:.03em}
-    .wt-area-count{font-size:.44rem;color:rgba(255,150,0,.6)}
-
-    /* horizontal strip */
-    .wt-strip{display:flex;flex-direction:row;overflow-x:auto;overflow-y:hidden;gap:.5rem;padding:.6rem 1rem .7rem;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-    .wt-strip::-webkit-scrollbar{display:none}
-    .wt-card{flex-shrink:0;width:88px;background:rgba(255,255,255,.05);border:1px solid rgba(255,150,0,.1);border-radius:9px;display:flex;flex-direction:column;align-items:center;padding:.5rem .4rem .45rem;gap:.25rem;scroll-snap-align:start;animation:slideIn .18s ease both}
-    .wt-photo{width:40px;height:40px;border-radius:50%;object-fit:cover;display:block;border:2px solid rgba(255,150,0,.22);background:rgba(255,255,255,.06)}
-    .wt-photo-fb{width:40px;height:40px;border-radius:50%;background:rgba(255,150,0,.1);display:flex;align-items:center;justify-content:center;font-size:1.1rem;border:2px solid rgba(255,150,0,.18)}
-    .wt-name{font-family:'Tiro Devanagari Nepal',serif;font-size:.66rem;color:rgba(255,255,255,.88);text-align:center;line-height:1.3;width:100%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-    .wt-party{font-size:.42rem;color:rgba(255,150,0,.62);text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .wt-votes{font-family:'Syne',sans-serif;font-weight:800;font-size:.68rem;color:var(--gold)}
-    .wt-view-all{flex-shrink:0;width:68px;background:rgba(255,150,0,.08);border:1px dashed rgba(255,150,0,.25);border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:.5rem .4rem;gap:.3rem;scroll-snap-align:start;cursor:pointer}
-    .wt-view-all-icon{font-size:1.1rem}
-    .wt-view-all-txt{font-size:.46rem;color:rgba(255,150,0,.7);letter-spacing:.04em;text-align:center}
-    .wt-placeholder{padding:1.4rem 1rem;text-align:center;color:rgba(255,255,255,.2);font-size:.68rem;letter-spacing:.06em;white-space:nowrap}
-    .wt-placeholder.err{color:rgba(255,100,80,.65)}
+    .wp-row:last-child{border-bottom:none}
+    .wp-logo{width:22px;height:22px;border-radius:50%;object-fit:contain;display:block;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05)}
+    .wp-logo-fb{width:22px;height:22px;border-radius:50%;background:rgba(80,160,255,.1);display:flex;align-items:center;justify-content:center;font-size:.65rem}
+    .wp-name{font-family:'Tiro Devanagari Nepal',serif;font-size:.66rem;color:rgba(255,255,255,.88);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .wp-pct{font-family:'Syne',sans-serif;font-weight:800;font-size:.6rem;color:#4fa3ff;text-align:right}
+    .wp-seat{font-family:'Syne',sans-serif;font-weight:800;font-size:.68rem;color:var(--gold);text-align:right}
+    .wp-placeholder{padding:1.4rem 1rem;text-align:center;color:rgba(255,255,255,.2);font-size:.68rem}
+    .wp-placeholder.err{color:rgba(255,100,80,.65)}
 
     @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.75)}}
     @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
@@ -488,7 +476,7 @@
   <div class="w-tabs" style="grid-template-columns:1fr 1fr 1fr">
     <div class="w-tab active" id="tab-const"  onclick="switchTab('const')">🗳 क्षेत्र</div>
     <div class="w-tab"        id="tab-seats"  onclick="switchTab('seats')">🏛 दल सिट</div>
-    <div class="w-tab"        id="tab-trend"  onclick="switchTab('trend')">🔥 Trending</div>
+    <div class="w-tab"        id="tab-pr"     onclick="switchTab('pr')">📊 समानुपातिक</div>
   </div>
 
   <!-- ── Panel: Constituency ── -->
@@ -537,15 +525,14 @@
 
   </div><!-- /panel-seats -->
 
-  <!-- ── Panel: Trending Candidates ── -->
-  <div class="w-panel" id="panel-trend">
-    <div class="wt-header">
-      <span class="wt-title">🔥 Trending Hot Seats</span>
-      <span class="wt-src">ratopati.com</span>
+  <!-- ── Panel: Samaupatik (PR) Results ── -->
+  <div class="w-panel" id="panel-pr">
+    <div class="wp-header">
+      <span class="wp-title">📊 समानुपातिक परिणाम</span>
+      <span class="wp-sub">PR · 110 Seats</span>
     </div>
-    <!-- sections injected by JS — each has an area label + horizontal strip -->
-    <div id="wt-body">
-      <div class="wt-placeholder">⏳ लोड हुँदैछ…</div>
+    <div class="wp-rows" id="wp-rows">
+      <div class="wp-placeholder">⏳ लोड हुँदैछ…</div>
     </div>
   </div>
 
@@ -625,26 +612,41 @@
     </div>
   </div>
 
-  <!-- TRENDING CANDIDATES CARD (full UI) -->
-  <div id="trend-card">
-    <div class="tc-hd">
-      <div class="tc-hd-left">
-        <span style="font-size:1.1rem;line-height:1">🔥</span>
+  <!-- SAMAUPATIK (PR) RESULTS CARD (full UI) -->
+  <div id="pr-card">
+    <div class="pr-hd">
+      <div class="pr-hd-left">
+        <span style="font-size:1.1rem;line-height:1">📊</span>
         <div>
-          <div class="tc-hd-title">Trending Candidates</div>
+          <div class="pr-hd-title">समानुपातिक निर्वाचन परिणाम</div>
+          <div class="pr-hd-sub">Proportional Representation · 110 Seats · election.ratopati.com</div>
         </div>
       </div>
-      <div class="tc-hd-right">
-        <div class="tc-dot loading" id="tc-dot"></div>
-        <span class="tc-live-txt" id="tc-live-txt">LOADING</span>
+      <div class="pr-hd-right">
+        <div class="pr-dot loading" id="pr-dot"></div>
+        <span class="pr-live-txt" id="pr-live-txt">LOADING</span>
       </div>
     </div>
-    <div class="tc-body" id="tc-body">
-      <div class="tc-placeholder">⏳ Trending candidates लोड हुँदैछ…</div>
+    <div class="pr-summary-bar" id="pr-summary-bar" style="display:none">
+      <div class="pr-bar-track" id="pr-bar-track"></div>
+      <div class="pr-bar-meta">
+        <span id="pr-bar-meta-left">— parties</span>
+        <span id="pr-bar-meta-right">110 seats total · <span id="pr-total-votes-lbl">—</span> votes counted</span>
+      </div>
     </div>
-    <div class="tc-ft">
-      <span class="tc-ft-updated" id="tc-updated">—</span>
-      <button class="tc-ft-btn" onclick="fetchTrending(true)">↺ Refresh</button>
+    <div class="pr-col-heads">
+      <div class="pr-col-head">Logo</div>
+      <div class="pr-col-head">दल / Party</div>
+      <div class="pr-col-head">मत / Votes</div>
+      <div class="pr-col-head">प्रतिशत %</div>
+      <div class="pr-col-head">सम्भावित सिट</div>
+    </div>
+    <div class="pr-rows" id="pr-rows">
+      <div class="pr-placeholder">⏳ समानुपातिक डाटा लोड हुँदैछ…</div>
+    </div>
+    <div class="pr-ft">
+      <span class="pr-ft-updated" id="pr-updated">—</span>
+      <button class="pr-ft-btn" onclick="fetchPR(true)">↺ Refresh</button>
     </div>
   </div>
 
@@ -712,154 +714,109 @@ function ss(m,s=''){$('status').className=s;$('st').textContent=m}
 function ts(){const n=new Date();return`${n.getHours()}:${String(n.getMinutes()).padStart(2,'0')}`}
 function isStandalone(){return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true||new URLSearchParams(location.search).get('widget')==='1'}
 
-// ── Trending / Hot-Seats ──────────────────────────────────────────────────
-let trendPollTimer=null;
+// ── Samaupatik (PR) Results ──────────────────────────────────────────────
+let prPollTimer = null;
 
-async function fetchTrending(force=false){
-  if($('tc-dot')){$('tc-dot').className='tc-dot loading';$('tc-live-txt').textContent='LOADING'}
+const PR_COLORS = [
+  '#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c',
+  '#3498db','#9b59b6','#e91e63','#00bcd4','#ff5722',
+  '#8bc34a','#ff9800','#607d8b','#795548','#673ab7',
+];
+
+async function fetchPR(force=false){
+  if($('pr-dot')){$('pr-dot').className='pr-dot loading';$('pr-live-txt').textContent='LOADING'}
   try{
-    const r=await fetch(`${API}/hot-seats${force?'?t='+Date.now():''}`);
+    const r=await fetch(`${API}/pr-results${force?'?t='+Date.now():''}`);
     if(!r.ok) throw new Error(`HTTP ${r.status}`);
     const data=await r.json();
     if(data.error) throw new Error(data.error);
-    renderTrendingFullUI(data);
-    renderTrendingWidget(data);
-    if($('tc-dot')){$('tc-dot').className='tc-dot';$('tc-live-txt').textContent='LIVE'}
+    renderPRFullUI(data);
+    renderPRWidget(data);
+    if($('pr-dot')){$('pr-dot').className='pr-dot';$('pr-live-txt').textContent='LIVE'}
   }catch(e){
-    if($('tc-dot')){$('tc-dot').className='tc-dot error';$('tc-live-txt').textContent='ERROR'}
-    if($('tc-body'))$('tc-body').innerHTML=`<div class="tc-placeholder err">⚠ ${esc(e.message)}</div>`;
-    if($('wt-body'))$('wt-body').innerHTML=`<div class="wt-placeholder err">⚠ ${esc(e.message)}</div>`;
+    if($('pr-dot')){$('pr-dot').className='pr-dot error';$('pr-live-txt').textContent='ERROR'}
+    const em=`<div class="pr-placeholder err">⚠ ${esc(e.message)}</div>`;
+    if($('pr-rows'))$('pr-rows').innerHTML=em;
+    if($('wp-rows'))$('wp-rows').innerHTML=`<div class="wp-placeholder err">⚠ ${esc(e.message)}</div>`;
   }
 }
 
-// ── helpers ───────────────────────────────────────────────────────────────
-// Is this area name Jhapa-5 (the default-open section)?
-function isJhapa5(area){
-  return /jhapa.?5|झापा.?5|झापा.?५/i.test(area);
-}
-
-// Build one candidate card (shared between full UI and widget)
-function _tcCardHtml(p, i, prefix){
-  const isFullUI = prefix==='tc';
-  const photoClass   = prefix+'-photo';
-  const photoFbClass = prefix+'-photo-fb';
-  const nameClass    = prefix+'-name';
-  const partyClass   = prefix+'-party'+(isFullUI?'-name':'');
-  const votesClass   = prefix+'-votes';
-  const cardClass    = prefix+'-card';
-  const logoClass    = 'tc-party-logo';   // same in both
-
-  const photoHtml = p.photo
-    ? `<div class="tc-photo-wrap" style="position:relative;flex-shrink:0">
-        <img class="${photoClass}" src="${esc(p.photo)}" alt="${esc(p.name)}"
-          onerror="this.outerHTML='<div class=\\'${photoFbClass}\\'>👤</div>'">
-        ${p.party_logo?`<img class="${logoClass}" src="${esc(p.party_logo)}" alt="" onerror="this.style.display='none'">`:''}
-       </div>`
-    : `<div class="${photoFbClass}">👤</div>`;
-
-  const votesTxt = p.votes>0 ? p.votes.toLocaleString() : '';
-  const statusHtml = (isFullUI && p.status)
-    ? `<div class="tc-status">${esc(p.status)}</div>` : '';
-
-  const inner = `${photoHtml}
-    <div class="${nameClass}">${esc(p.name)}</div>
-    ${p.party?`<div class="${partyClass}">${esc(p.party)}</div>`:''}
-    ${votesTxt?`<div class="${votesClass}">${votesTxt}</div>`:''}
-    ${statusHtml}`;
-
-  const delay = `animation-delay:${i*18}ms`;
-  return p.link
-    ? `<div class="${cardClass}" style="${delay}"><a href="${esc(p.link)}" target="_blank" rel="noopener">${inner}</a></div>`
-    : `<div class="${cardClass}" style="${delay}">${inner}</div>`;
-}
-
-// Toggle a section open/closed (full UI)
-function toggleTcSection(idx){
-  const cards = document.getElementById('tc-cards-'+idx);
-  const btn   = document.getElementById('tc-btn-'+idx);
-  if(!cards||!btn) return;
-  const open = cards.style.display!=='none';
-  cards.style.display = open ? 'none' : 'grid';
-  btn.textContent     = open ? 'View All ↓' : 'Hide ↑';
-}
-
-// ── FULL UI render ────────────────────────────────────────────────────────
-function renderTrendingFullUI(data){
-  const sections = data.sections||[];
-  const body = $('tc-body');
-  if(!body) return;
-
-  if(!sections.length){
-    body.innerHTML='<div class="tc-placeholder">डाटा उपलब्ध छैन</div>';
+function renderPRFullUI(data){
+  const parties = data.parties||[];
+  const el = $('pr-rows');
+  if(!el) return;
+  if(!parties.length){
+    el.innerHTML='<div class="pr-placeholder">डाटा उपलब्ध छैन</div>';
     return;
   }
 
-  body.innerHTML = sections.map((sec, si)=>{
-    const area  = sec.area || 'Hot Seat';
-    const cands = sec.candidates || [];
-    const total = cands.length;
-    // Jhapa-5 is open by default; all others are collapsed
-    const isDefault = isJhapa5(area);
-    const gridStyle = isDefault ? '' : 'display:none';
-    const btnLabel  = isDefault ? 'Hide ↑' : 'View All ↓';
+  const maxVotes   = Math.max(...parties.map(p=>p.votes||0), 1);
+  const maxSeats   = Math.max(...parties.map(p=>p.probable_seats||0), 1);
+  const maxPct     = Math.max(...parties.map(p=>p.pct||0), 1);
+  const totalVotes = data.total_votes || parties.reduce((s,p)=>s+(p.votes||0),0);
 
-    const cardsHtml = cands.map((p,i)=>_tcCardHtml(p, i, 'tc')).join('');
+  // Summary bar segments
+  const barEl = $('pr-bar-track');
+  if(barEl){
+    barEl.innerHTML = parties.slice(0,12).map((p,i)=>{
+      const w = Math.max((p.pct||0)/100*100, 0.3).toFixed(2);
+      return `<div class="pr-bar-seg" style="width:${w}%;background:${PR_COLORS[i%PR_COLORS.length]}" title="${esc(p.name)}: ${p.pct||0}%"></div>`;
+    }).join('');
+    $('pr-summary-bar').style.display='block';
+    $('pr-bar-meta-left').textContent=`${parties.length} parties`;
+    if($('pr-total-votes-lbl'))$('pr-total-votes-lbl').textContent=totalVotes.toLocaleString();
+  }
 
-    return `
-    <div class="tc-section">
-      <div class="tc-sec-hd">
-        <div style="display:flex;align-items:center;gap:.5rem">
-          <span class="tc-sec-name">📍 ${esc(area)}</span>
-          <span class="tc-sec-badge">${total} candidates</span>
-        </div>
-        <button class="tc-view-all" id="tc-btn-${si}"
-          onclick="toggleTcSection(${si})">${btnLabel}</button>
+  el.innerHTML = parties.map((p,i)=>{
+    const color      = PR_COLORS[i%PR_COLORS.length];
+    const logoHtml   = p.logo
+      ? `<img class="pr-logo" src="${esc(p.logo)}" alt="" onerror="this.outerHTML='<div class=\\'pr-logo-fb\\'>🏛</div>'">`
+      : `<div class="pr-logo-fb">🏛</div>`;
+    const votesHtml  = (p.votes||0)>0 ? (p.votes).toLocaleString() : '—';
+    const pct        = (p.pct||0).toFixed(2);
+    const pctBarW    = Math.round((p.pct||0)/maxPct*100);
+    const seats      = p.probable_seats||0;
+    const seatBarW   = Math.round(seats/maxSeats*100);
+
+    return `<div class="pr-row" style="border-left:3px solid ${color}">
+      ${logoHtml}
+      <div>
+        <div class="pr-name">${esc(p.name)}</div>
       </div>
-      <div class="tc-cards" id="tc-cards-${si}" style="${gridStyle}">
-        ${cardsHtml}
+      <div class="pr-votes">${votesHtml}</div>
+      <div class="pr-pct-cell">
+        <span class="pr-pct-val">${pct}%</span>
+        <div class="pr-pct-bar" style="width:${pctBarW}%;background:${color}"></div>
+      </div>
+      <div class="pr-seat-cell">
+        <span class="pr-seat-val">${seats}</span>
+        <div class="pr-seat-bar" style="width:${seatBarW}%"></div>
       </div>
     </div>`;
   }).join('');
 
-  $('tc-updated').textContent=`Updated ${ts()} · ${data.scraped_at||''}`;
+  if($('pr-updated'))$('pr-updated').textContent=`Updated ${ts()} · ${data.scraped_at||''}`;
 }
 
-// ── WIDGET render ─────────────────────────────────────────────────────────
-function renderTrendingWidget(data){
-  const sections = data.sections||[];
-  const body = $('wt-body');
-  if(!body) return;
-
-  if(!sections.length){
-    body.innerHTML='<div class="wt-placeholder">डाटा उपलब्ध छैन</div>';
+function renderPRWidget(data){
+  const parties = data.parties||[];
+  const el = $('wp-rows');
+  if(!el) return;
+  if(!parties.length){
+    el.innerHTML='<div class="wp-placeholder">डाटा उपलब्ध छैन</div>';
     return;
   }
-
-  // Widget: show Jhapa-5 first (all visible), then each remaining section
-  // Each section = area label row + horizontal scroll strip (with "View More" card at end)
-  const sorted = [...sections].sort((a,b)=>{
-    if(isJhapa5(a.area)) return -1;
-    if(isJhapa5(b.area)) return 1;
-    return 0;
-  });
-
-  body.innerHTML = sorted.map((sec, si)=>{
-    const area  = sec.area || 'Hot Seat';
-    const cands = sec.candidates || [];
-    const cardsHtml = cands.map((p,i)=>_tcCardHtml(p, i, 'wt')).join('');
-
-    // "View more" stub card that switches to full UI
-    const moreCard = `<div class="wt-view-all" onclick="exitWidget()" title="View full page">
-      <span class="wt-view-all-icon">🔗</span>
-      <span class="wt-view-all-txt">Full<br/>View</span>
+  el.innerHTML = parties.map((p,i)=>{
+    const color    = PR_COLORS[i%PR_COLORS.length];
+    const logoHtml = p.logo
+      ? `<img class="wp-logo" src="${esc(p.logo)}" alt="" onerror="this.outerHTML='<div class=\\'wp-logo-fb\\'>🏛</div>'">`
+      : `<div class="wp-logo-fb">🏛</div>`;
+    return `<div class="wp-row" style="border-left:2px solid ${color}">
+      ${logoHtml}
+      <div class="wp-name">${esc(p.name)}</div>
+      <div class="wp-pct">${(p.pct||0).toFixed(1)}%</div>
+      <div class="wp-seat">${p.probable_seats||0}</div>
     </div>`;
-
-    return `
-    <div class="wt-area-row">
-      <span class="wt-area-name">📍 ${esc(area)}</span>
-      <span class="wt-area-count">${cands.length} candidates</span>
-    </div>
-    <div class="wt-strip">${cardsHtml}${moreCard}</div>`;
   }).join('');
 }
 
@@ -871,15 +828,15 @@ function initMode(){
     if(currentSlug) startWidget(currentSlug);
     fetchSeats();
     seatsPollTimer=setInterval(()=>fetchSeats(),30000);
-    fetchTrending();
-    trendPollTimer=setInterval(()=>fetchTrending(),60000);
+    fetchPR();
+    prPollTimer=setInterval(()=>fetchPR(),60000);
   } else {
     showInstallPrompts();
     if(currentSlug) preSelectSlug(currentSlug);
     fetchSeats();
     seatsPollTimer=setInterval(()=>fetchSeats(),30000);
-    fetchTrending();
-    trendPollTimer=setInterval(()=>fetchTrending(),60000);
+    fetchPR();
+    prPollTimer=setInterval(()=>fetchPR(),60000);
   }
 }
 
