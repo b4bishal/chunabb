@@ -623,287 +623,253 @@ def scrape(slug: str) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# HOT-SEATS / TRENDING CANDIDATES
+# SAMAUPATIK (Proportional Representation) PARTY RESULTS
+# class: samaupatik-parties-result  on https://election.ratopati.com/
 # ─────────────────────────────────────────────────────────────────────────────
 
-_HOT_JS = r"""
+PR_TOTAL_SEATS = 110   # total PR seats to distribute
+
+_PR_JS = r"""
 (function(){
   var NP={'०':'0','१':'1','२':'2','३':'3','४':'4','५':'5','६':'6','७':'7','८':'8','९':'9'};
-  function toInt(s){
-    return parseInt((s||'').split('').map(function(c){return NP[c]||c;}).join('').replace(/[^0-9]/g,'') || '0',10)||0;
+  function npInt(s){
+    return parseInt((s||'').split('').map(function(c){return NP[c]||c;}).join('').replace(/[^0-9]/g,'') || '0', 10) || 0;
   }
-  function npToAscii(s){
-    return (s||'').split('').map(function(c){return NP[c]||c;}).join('');
+  function npFloat(s){
+    var clean = (s||'').split('').map(function(c){return NP[c]||c;}).join('').replace(/[^0-9.]/g,'');
+    return parseFloat(clean) || 0;
   }
 
-  // ── Step 1: find the main content container ─────────────────────────
-  // Walk up from the first constituency heading to find the common parent
-  var main = document.querySelector('main, [class*="main"], [class*="content"], [class*="container"], #__next, body');
+  // Find the samaupatik section
+  var container = document.querySelector('.samaupatik-parties-result')
+                || document.querySelector('[class*="samaupatik"]')
+                || document.querySelector('[class*="proportional"]')
+                || document.querySelector('[class*="pr-result"]');
 
-  // ── Step 2: identify "section heading" elements ──────────────────────
-  // A heading is an element that:
-  //   - Contains a constituency-like name (text with district + number, Nepali or English)
-  //   - Does NOT itself contain an <img> (it's a label, not a card)
-  //   - Is followed by sibling card elements
-  var CONST_RE = /jhapa|झापा|morang|मोरंग|kathmandu|काठमाडौं|chitwan|चितवन|sunsari|सुनसरी|ilam|इलाम|rupandehi|रूपन्देही|kaski|कास्की|lalitpur|ललितपुर|bhaktapur|भक्तपुर|banke|बाँके|kailali|कैलाली|sarlahi|सर्लाही|bara|बारा|parsa|पर्सा|mahottari|महोत्तरी|dhanusha|धनुषा|rautahat|रौतहट|saptari|सप्तरी|siraha|सिरहा|dang|दाङ|nawalpur|नवलपुर|palpa|पाल्पा|baglung|बागलुङ|gorkha|गोरखा|tanahun|तनहुँ|surkhet|सुर्खेत|kanchanpur|कञ्चनपुर|dailekh|दैलेख|jajarkot|जाजरकोट|dadeldhura|डडेल्धुरा|baitadi|बैतडी|doti|डोटी|achham|अछाम|bajhang|बाजहाङ|bajura|बाजुरा|nuwakot|नुवाकोट|dhading|धादिङ|sindhuli|सिन्धुली|makwanpur|मकवानपुर|kavrepalanchok|काभ्रे|dolakha|दोलखा|sindhupalchok|सिन्धुपाल्चोक|rasuwa|रसुवा|taplejung|ताप्लेजुङ|panchthar|पाँचथर|tehrathum|तेह्रथुम|dhankuta|धनकुटा|bhojpur|भोजपुर|solukhumbu|सोलुखुम्बु|okhaldhunga|ओखलढुङ्गा|khotang|खोटाङ|udayapur|उदयपुर|sankhuwasabha|संखुवासभा|manang|मनाङ|mustang|मुस्ताङ|myagdi|म्याग्दी|parbat|पर्वत|syangja|स्याङ्जा|lamjung|लम्जुङ|arghakhanchi|अर्घाखाँची|gulmi|गुल्मी|kapilvastu|कपिलवस्तु|nawalparasi|नवलपरासी|rolpa|रोल्पा|pyuthan|प्युठान|bardiya|बर्दिया|dolpa|डोल्पा|mugu|मुगु|humla|हुम्ला|jumla|जुम्ला|kalikot|कालीकोट|rukum|रुकुम|salyan|सल्यान|bajhang/i;
+  if(!container){
+    // Try to find by text proximity: look for heading containing "समानुपातिक"
+    var heads = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6,[class*="title"],[class*="heading"]'));
+    for(var i=0;i<heads.length;i++){
+      if(/समानुपातिक|samaupatik|proportional/i.test(heads[i].innerText||'')){
+        container = heads[i].parentElement || heads[i].nextElementSibling;
+        if(container) break;
+      }
+    }
+  }
 
-  // Collect all text-only heading candidates
-  var headings = [];
-  Array.from(main.querySelectorAll('h1,h2,h3,h4,h5,h6,[class*="heading"],[class*="title"],[class*="section-title"],[class*="group-title"],[class*="area-title"],[class*="const-title"],[class*="seat-title"]')).forEach(function(el){
-    if(el.querySelector('img')) return;
-    var txt=(el.innerText||'').trim();
-    if(txt.length<2 || txt.length>120) return;
-    if(CONST_RE.test(txt)) headings.push(el);
+  if(!container) return {found:false, tried:'no container', html_sample: document.body.innerHTML.slice(0,2000)};
+
+  // Find repeating party row/card elements
+  // Strategy: find smallest elements that each contain one <img> and numbers
+  var seen = new Set();
+  var rows = [];
+  Array.from(container.querySelectorAll('*')).forEach(function(el){
+    if(seen.has(el)) return;
+    var imgs = el.querySelectorAll('img');
+    if(imgs.length < 1) return;
+    var txt = (el.innerText||'').trim();
+    if(!txt || txt.length > 600) return;
+    if(!/[0-9०-९]/.test(txt)) return;
+    if(el.querySelectorAll('img').length > 3) return;  // skip wrapper with many imgs
+    rows.push(el);
+    el.querySelectorAll('*').forEach(function(c){seen.add(c);});
+    seen.add(el);
   });
 
-  // Also scan ALL elements for short text-only nodes matching constituency pattern
-  if(headings.length===0){
-    Array.from(main.querySelectorAll('*')).forEach(function(el){
-      if(el.querySelector('img')) return;
-      if(el.children.length > 3) return;
-      var txt=(el.innerText||'').trim();
-      if(txt.length<2 || txt.length>120) return;
-      if(!CONST_RE.test(txt)) return;
-      // avoid duplicates
-      for(var i=0;i<headings.length;i++){if(headings[i]===el||headings[i].contains(el)||el.contains(headings[i]))return;}
-      headings.push(el);
-    });
-  }
+  var parties = [];
+  var totalVotes = 0;
 
-  // ── Step 3: helper to extract one candidate card ──────────────────────
-  function extractCard(card){
-    var imgs=Array.from(card.querySelectorAll('img[src]'));
-    if(imgs.length===0) return null;
+  rows.forEach(function(row){
+    var imgs = Array.from(row.querySelectorAll('img[src]'));
+    if(!imgs.length) return;
 
-    var candidateImg=null, partyImg=null;
-    imgs.forEach(function(img){
-      var src=img.src||'';
-      if(src.indexOf('data:')===0) return;
-      if(/party|logo|symbol|flag/i.test(src+(img.className||''))){
-        if(!partyImg) partyImg=img;
-      } else {
-        if(!candidateImg) candidateImg=img;
-      }
-    });
-    if(!candidateImg && imgs.length>0) candidateImg=imgs[0];
-    if(!candidateImg) return null;
+    // Logo: first non-data img
+    var logo = '';
+    for(var i=0;i<imgs.length;i++){
+      if(imgs[i].src.indexOf('data:')!==0){ logo=imgs[i].src; break; }
+    }
 
-    var photo=candidateImg.src;
-    if(!partyImg && imgs.length>1) partyImg=imgs[1];
-    var partyLogo=(partyImg&&partyImg.src!==photo)?partyImg.src:'';
-
-    // Name
-    var nameEl=card.querySelector('[class*="name"],[class*="cand"],[class*="person"],[class*="candidate"]');
-    var name=nameEl?(nameEl.innerText||'').trim():'';
-    if(!name||/^[0-9\s,]+$/.test(name)){
-      var walker=document.createTreeWalker(card,NodeFilter.SHOW_TEXT);
-      var parts=[];
+    // Party name: look for name-class element, else collect non-numeric text
+    var nameEl = row.querySelector('[class*="name"],[class*="party-name"],[class*="title"]');
+    var name = nameEl ? (nameEl.innerText||'').trim() : '';
+    if(!name){
+      var walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
+      var parts = [];
       while(walker.nextNode()){
-        var t=(walker.currentNode.textContent||'').trim();
-        var a=npToAscii(t);
-        if(!a||/^[0-9,\s%]+$/.test(a)||a.length<2) continue;
+        var t = (walker.currentNode.textContent||'').trim();
+        var a = t.split('').map(function(c){return NP[c]||c;}).join('');
+        if(!a || /^[0-9,.\s%]+$/.test(a) || a.length<2) continue;
         parts.push(t);
       }
-      name=parts.join(' ').trim();
+      name = parts.join(' ').trim();
     }
-    if(!name) return null;
+    if(!name || name.length < 2) return;
 
-    // Party
-    var partyEl=card.querySelector('[class*="party"],[class*="dol"],[class*="paksh"]');
-    var party=partyEl?(partyEl.innerText||'').trim():'';
-    if(party===name) party='';
-
-    // Votes
-    var walker2=document.createTreeWalker(card,NodeFilter.SHOW_TEXT);
-    var nums=[];
+    // Collect all numbers in the row
+    var allNums = [];
+    var walker2 = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
     while(walker2.nextNode()){
-      var t2=(walker2.currentNode.textContent||'').trim();
-      if(/^[0-9,०-९]+$/.test(t2)&&t2.replace(/,/g,'').length>=1)
-        nums.push(toInt(t2));
-    }
-    var votes=nums.length>0?Math.max.apply(null,nums):0;
-
-    // Status
-    var statusEl=card.querySelector('[class*="win"],[class*="lead"],[class*="vijay"],[class*="badge"],[class*="status"]');
-    var status=statusEl?(statusEl.innerText||'').trim():'';
-
-    // Link
-    var anchor=card.closest('a[href]')||card.querySelector('a[href]');
-    var link=anchor?anchor.href:'';
-
-    return {name:name.substring(0,80),photo:photo,party:party.substring(0,60),party_logo:partyLogo,votes:votes,status:status.substring(0,30),link:link};
-  }
-
-  // ── Step 4: helper to collect cards within a DOM subtree/sibling range ─
-  function isCardEl(el){
-    if(!el||el.nodeType!==1) return false;
-    var imgs=el.querySelectorAll('img');
-    if(imgs.length===0) return false;
-    var txt=(el.innerText||'').trim();
-    return txt.length>1 && txt.length<400 && imgs.length<=4;
-  }
-
-  function cardsInContainer(container){
-    // find repeating child elements that have imgs
-    var direct=Array.from(container.children);
-    var withImg=direct.filter(function(c){return c.querySelector('img');});
-    if(withImg.length>=1) return withImg;
-    // go one level deeper
-    for(var i=0;i<direct.length;i++){
-      var sub=Array.from(direct[i].children).filter(function(c){return c.querySelector('img');});
-      if(sub.length>=1) return sub;
-    }
-    return [];
-  }
-
-  // ── Step 5: build sections ────────────────────────────────────────────
-  var sections = [];
-
-  if(headings.length > 0){
-    headings.forEach(function(hEl){
-      var areaName=(hEl.innerText||'').trim();
-
-      // Find the sibling container right after the heading
-      var container = hEl.nextElementSibling;
-      // Walk forward up to 3 siblings to find a container with cards
-      for(var attempt=0; attempt<3 && container; attempt++){
-        var cardEls=cardsInContainer(container);
-        if(cardEls.length>0){
-          var cands=[];
-          cardEls.forEach(function(cel){
-            var c=extractCard(cel);
-            if(c) cands.push(c);
-          });
-          if(cands.length>0){
-            sections.push({area:areaName, candidates:cands});
-            return;
-          }
-        }
-        // Maybe the container IS the heading's parent's next sibling
-        container=container.nextElementSibling;
+      var t2 = (walker2.currentNode.textContent||'').trim();
+      // percentage (contains dot or %)
+      if(/[0-9०-९]/.test(t2) && (/[%.]/.test(t2) || /^[0-9,०-९.]+%?$/.test(t2))){
+        allNums.push(t2);
       }
-      // fallback: heading's parent might wrap everything
-      var parent=hEl.parentElement;
-      if(parent){
-        var cardEls2=cardsInContainer(parent);
-        // filter out the heading itself
-        cardEls2=cardEls2.filter(function(c){return c!==hEl && !c.contains(hEl);});
-        if(cardEls2.length>0){
-          var cands2=[];
-          cardEls2.forEach(function(cel){
-            var c=extractCard(cel);
-            if(c) cands2.push(c);
-          });
-          if(cands2.length>0) sections.push({area:areaName, candidates:cands2});
-        }
+    }
+
+    // Try to find percentage specifically
+    var pctEl = row.querySelector('[class*="percent"],[class*="pct"],[class*="ratio"]');
+    var pctRaw = pctEl ? (pctEl.innerText||'').trim() : '';
+
+    // Try to find vote count specifically
+    var voteEl = row.querySelector('[class*="vote"],[class*="count"],[class*="total"]');
+    var voteRaw = voteEl ? (voteEl.innerText||'').trim() : '';
+
+    // Parse: largest integer = votes, number with dot/% = percentage
+    var votes = 0, pct = 0;
+    allNums.forEach(function(s){
+      var clean = s.split('').map(function(c){return NP[c]||c;}).join('').replace(/,/g,'');
+      if(clean.indexOf('.')!==-1 || clean.indexOf('%')!==-1){
+        var f = parseFloat(clean.replace(/%/g,''));
+        if(f>0 && f<=100 && f>pct) pct=f;
+      } else {
+        var n = parseInt(clean.replace(/[^0-9]/g,''), 10)||0;
+        if(n>votes) votes=n;
       }
+    });
+
+    // Override with labelled elements if found
+    if(voteRaw) votes = npInt(voteRaw) || votes;
+    if(pctRaw)  pct   = npFloat(pctRaw) || pct;
+
+    if(votes>0) totalVotes += votes;
+
+    parties.push({
+      name:  name.substring(0,80),
+      logo:  logo,
+      votes: votes,
+      pct:   pct,
+    });
+  });
+
+  // Re-derive percentages from raw vote totals if pct is missing
+  if(totalVotes > 0){
+    parties.forEach(function(p){
+      if(!p.pct && p.votes>0) p.pct = parseFloat((p.votes/totalVotes*100).toFixed(2));
     });
   }
 
-  // ── Step 6: flat fallback if no sections found ──────────────────────
-  if(sections.length===0){
-    var seen2=new Set();
-    var allCards=[];
-    Array.from(main.querySelectorAll('*')).forEach(function(el){
-      if(seen2.has(el)) return;
-      if(!isCardEl(el)) return;
-      allCards.push(el);
-      el.querySelectorAll('*').forEach(function(c){seen2.add(c);});
-      seen2.add(el);
-    });
-    var flatCands=[];
-    allCards.forEach(function(c){var r=extractCard(c);if(r)flatCands.push(r);});
-    if(flatCands.length>0) sections.push({area:'Hot Seats', candidates:flatCands});
-  }
+  parties.sort(function(a,b){return b.votes - a.votes;});
 
   return {
-    url: window.location.href,
-    heading_count: headings.length,
-    section_count: sections.length,
-    sections: sections,
+    found: true,
+    container_class: container.className,
+    total_votes: totalVotes,
+    party_count: parties.length,
+    parties: parties,
   };
 })();
 """
 
 
-def scrape_hot_seats() -> dict:
-    """Scrape election.ratopati.com/hot-seats — returns sections grouped by constituency."""
-    url = f"{BASE}/hot-seats"
-    logging.info(f"scrape_hot_seats → {url}")
+def scrape_pr_results() -> dict:
+    """Scrape samaupatik (PR) party results from ratopati homepage."""
+    logging.info(f"scrape_pr_results → {BASE}")
     driver = make_driver()
     try:
-        driver.get(url)
+        driver.get(BASE)
         try:
             WebDriverWait(driver, 30).until(
-                lambda d: len(d.find_element(By.TAG_NAME, "body").text) > 300
+                lambda d: len(d.find_element(By.TAG_NAME, "body").text) > 500
             )
         except Exception:
-            logging.warning("hot-seats body wait timed out")
-        time.sleep(5)  # let JS finish rendering all sections
+            logging.warning("PR results: body wait timed out")
+        time.sleep(4)
 
         html = driver.page_source
-        logging.info(f"  hot-seats HTML length: {len(html):,}")
+        logging.info(f"  PR HTML length: {len(html):,}")
 
-        sections = []
+        parties = []
+        total_votes = 0
         try:
-            result = driver.execute_script(_HOT_JS)
+            result = driver.execute_script(_PR_JS)
             if result and isinstance(result, dict):
                 logging.info(
-                    f"  JS: headings={result.get('heading_count')}, "
-                    f"sections={result.get('section_count')}, "
-                    f"raw_sections={len(result.get('sections', []))}"
+                    f"  PR JS: found={result.get('found')}, "
+                    f"parties={result.get('party_count')}, "
+                    f"class={str(result.get('container_class','?'))[:60]}"
                 )
-                sections = result.get("sections") or []
+                parties = result.get("parties") or []
+                total_votes = result.get("total_votes") or 0
+                if not result.get("found"):
+                    logging.warning(f"  PR JS html_sample: {result.get('html_sample','')[:500]}")
             else:
-                logging.warning(f"  JS returned: {repr(result)}")
+                logging.warning(f"  PR JS returned: {repr(result)}")
         except Exception as e:
-            logging.warning(f"  JS error: {e}")
+            logging.warning(f"  PR JS error: {e}")
 
-        # BS4 fallback — produces a single flat section
-        if not sections:
-            logging.info("  Falling back to BS4 for hot-seats")
-            sections = _bs_parse_hot_seats(html)
+        # BS4 fallback
+        if not parties:
+            logging.info("  PR: falling back to BS4")
+            parties, total_votes = _bs_parse_pr(html)
 
-        # Clean up: remove sections with no candidates
-        sections = [s for s in sections if s.get("candidates")]
-        logging.info(f"  Final sections: {len(sections)}, "
-                     f"total candidates: {sum(len(s['candidates']) for s in sections)}")
+        # Calculate probable seats (110 total PR seats, D'Hondt / simple proportional)
+        total_pct = sum(p.get("pct", 0) for p in parties)
+        for p in parties:
+            pct = p.get("pct") or 0
+            if not pct and total_votes and p.get("votes"):
+                pct = round(p["votes"] / total_votes * 100, 2)
+                p["pct"] = pct
+            # Probable seats = floor(pct / total_pct * 110) basic proportional
+            if total_pct > 0:
+                p["probable_seats"] = round(pct / total_pct * PR_TOTAL_SEATS)
+            else:
+                p["probable_seats"] = 0
 
+        logging.info(f"  PR: {len(parties)} parties, total_votes={total_votes:,}")
         return {
             "scraped_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "source_url": url,
-            "sections": sections,
+            "total_seats": PR_TOTAL_SEATS,
+            "total_votes": total_votes,
+            "parties": parties,
         }
     finally:
         driver.quit()
 
 
-def _bs_parse_hot_seats(html: str) -> list:
-    """
-    BS4 fallback: walk headings → sibling card containers.
-    Returns a list of section dicts: [{area, candidates:[...]}]
-    """
+def _bs_parse_pr(html: str):
+    """BS4 fallback: find .samaupatik-parties-result and extract rows."""
     soup = BeautifulSoup(html, "html.parser")
 
-    CONST_PAT = re.compile(
-        r'jhapa|झापा|morang|मोरंग|kathmandu|काठमाडौं|chitwan|चितवन|sunsari|सुनसरी|'
-        r'ilam|इलाम|rupandehi|रूपन्देही|kaski|कास्की|lalitpur|ललितपुर|'
-        r'bhaktapur|भक्तपुर|banke|बाँके|kailali|कैलाली|sarlahi|सर्लाही|'
-        r'bara|बारा|parsa|पर्सा|mahottari|महोत्तरी|dhanusha|धनुषा|'
-        r'rautahat|रौतहट|saptari|सप्तरी|siraha|सिरहा',
-        re.IGNORECASE
-    )
+    # Find container
+    container = soup.find(class_=re.compile(r"samaupatik|proportional|pr-result", re.I))
+    if not container:
+        container = soup
 
-    def extract_cand(el):
+    seen_ids: set = set()
+    parties = []
+    total_votes = 0
+
+    for el in container.find_all(True):
+        eid = id(el)
+        if eid in seen_ids:
+            continue
         imgs = el.find_all("img", src=True)
         if not imgs:
-            return None
-        photo = abs_url(imgs[0].get("src", ""))
-        if not photo:
-            return None
-        party_logo = abs_url(imgs[1].get("src", "")) if len(imgs) > 1 else None
-        if party_logo == photo:
-            party_logo = None
+            continue
+        if len(el.find_all(True)) > 25 or len(el.get_text()) > 500:
+            continue
+        txt = el.get_text()
+        if not re.search(r'[0-9०-९]', txt):
+            continue
+
+        for d in el.find_all(True):
+            seen_ids.add(id(d))
+        seen_ids.add(eid)
+
+        logo = abs_url(imgs[0].get("src", ""))
+        if not logo:
+            continue
+
         raw = el.get_text(separator=" ", strip=True)
         name_parts = []
         for tok in raw.split():
@@ -912,73 +878,26 @@ def _bs_parse_hot_seats(html: str) -> list:
                 name_parts.append(tok)
         name = " ".join(name_parts).strip()
         if not name or len(name) < 2:
-            return None
-        nums = [nepali_to_int(m) for m in re.findall(r'[0-9,०-९]+', raw)]
-        votes = max(nums) if nums else 0
-        return {"name": name[:80], "photo": photo, "party": "",
-                "party_logo": party_logo, "votes": votes, "status": "", "link": ""}
-
-    # Find heading elements
-    headings = []
-    for tag in soup.find_all(["h1","h2","h3","h4","h5","h6","div","p","span"]):
-        if tag.find("img"):
             continue
-        txt = tag.get_text(strip=True)
-        if 2 <= len(txt) <= 100 and CONST_PAT.search(txt):
-            # avoid nesting duplicates
-            skip = any(h.find(tag) or tag.find(h) for h in headings)
-            if not skip:
-                headings.append(tag)
 
-    sections = []
-    seen_ids = set()
+        nums = re.findall(r'[0-9,०-९]+(?:\.[0-9]+)?', raw)
+        votes = 0
+        pct = 0.0
+        for n in nums:
+            val = ''.join(NP_DIGITS.get(c, c) for c in n).replace(',', '')
+            if '.' in val:
+                f = float(val)
+                if 0 < f <= 100:
+                    pct = f
+            else:
+                v = int(val) if val else 0
+                if v > votes:
+                    votes = v
 
-    for hTag in headings:
-        area = hTag.get_text(strip=True)
-        cands = []
-        # look at next siblings
-        sib = hTag.find_next_sibling()
-        for _ in range(3):
-            if not sib:
-                break
-            cards = [c for c in sib.find_all(True)
-                     if c.find("img") and 0 < len(c.find_all(True)) <= 20
-                     and id(c) not in seen_ids]
-            for card in cards:
-                r = extract_cand(card)
-                if r:
-                    cands.append(r)
-                    for d in card.find_all(True):
-                        seen_ids.add(id(d))
-                    seen_ids.add(id(card))
-            if cands:
-                break
-            sib = sib.find_next_sibling()
-        if cands:
-            sections.append({"area": area, "candidates": cands})
+        total_votes += votes
+        parties.append({"name": name[:80], "logo": logo, "votes": votes, "pct": pct})
 
-    # Total flat fallback
-    if not sections:
-        flat_cands = []
-        seen2 = set()
-        for el in soup.find_all(True):
-            if id(el) in seen2:
-                continue
-            imgs = el.find_all("img", src=True)
-            if not imgs:
-                continue
-            if len(el.find_all(True)) > 20 or len(el.get_text()) > 300:
-                continue
-            r = extract_cand(el)
-            if r:
-                flat_cands.append(r)
-                for d in el.find_all(True):
-                    seen2.add(id(d))
-                seen2.add(id(el))
-        if flat_cands:
-            sections = [{"area": "Hot Seats", "candidates": flat_cands}]
-
-    return sections
+    return parties, total_votes
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1002,19 +921,17 @@ def party_seats():
         logging.error(f"party-seats failed: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
-
-
-@app.route("/hot-seats")
-def hot_seats():
-    entry = results_cache.get("__hot_seats__", {})
+@app.route("/pr-results")
+def pr_results():
+    entry = results_cache.get("__pr_results__", {})
     if is_fresh(entry):
         return jsonify(entry["data"])
     try:
-        data = scrape_hot_seats()
-        results_cache["__hot_seats__"] = {"data": data, "expires_at": time.time() + CACHE_TTL}
+        data = scrape_pr_results()
+        results_cache["__pr_results__"] = {"data": data, "expires_at": time.time() + CACHE_TTL}
         return jsonify(data)
     except Exception as e:
-        logging.error(f"hot-seats failed: {e}", exc_info=True)
+        logging.error(f"pr-results failed: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 @app.route("/debug-lead-table")
